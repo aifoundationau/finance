@@ -1,0 +1,22 @@
+{
+  "name": "my-asx-options",
+  "version": "1.0.0",
+  "description": "MY ASX Options: daily Australian government contract intelligence mapped to ASX tickers and exchange-traded options.",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch-path=server.js --watch-path=src --watch-path=shared server.js",
+    "report": "node scripts/run-report.js",
+    "report:ai": "node scripts/run-report.js --ai",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.137.0",
+    "unpdf": "^1.9.1"
+  }
+}

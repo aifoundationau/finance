@@ -1,0 +1,10 @@
+{
+  "name": "MY ASX Options · Gov Contract Radar",
+  "short_name": "MY ASX Options",
+  "description": "Daily Australian government contract intelligence mapped to ASX tickers and exchange-traded options.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f2",
+  "theme_color": "#0f2a4a",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

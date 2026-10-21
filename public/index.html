@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MY ASX Options · Gov Contract Radar</title>
+  <meta name="description" content="Daily Australian government contract intelligence mapped to ASX tickers and exchange-traded options.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f5f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/theme.js"></script>
+  <script type="module" src="/agent-driver.js"></script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body data-ready="false">
+  <a class="skip-link" href="#main" data-agent-id="link_skip_to_content" data-testid="link_skip_to_content">Skip to content</a>
+
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0f2a4a"/><path d="M7 21.5l5.5-5.5 4 4L25 11.5" fill="none" stroke="#86b6ef" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="11.5" r="2.4" fill="#ffffff"/></symbol>
+    <symbol id="i-overview" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/></g></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.2"/></g></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></g></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.8" cy="6.5" r=".6" fill="currentColor"/><circle cx="4.8" cy="12" r=".6" fill="currentColor"/><circle cx="4.8" cy="17.5" r=".6" fill="currentColor"/></g></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 0 0 6.3 6.3L4 8.5"/><path d="M4 4v4.5h4.5"/><path d="M4 12.5a8 8 0 0 0 13.7 5.2L20 15.5"/><path d="M20 20v-4.5h-4.5"/></g></symbol>
+    <symbol id="i-theme" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></g></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6.5h16M7 12h10M10 17.5h4"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.5h5.5V10"/><path d="M19.5 4.5L11 13"/><path d="M18 14.5v4a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6h4"/></g></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.8l2.5 5.2 5.7.7-4.2 3.9 1.1 5.6L12 16.4l-5.1 2.8 1.1-5.6-4.2-3.9 5.7-.7z" fill="currentColor"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></g></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M4.5 19.5h15"/></g></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9-1.9 5.1-1.9-5.1-5.1-1.9 5.1-1.9zM18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="currentColor"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.3" r=".5" fill="currentColor"/></g></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".5" fill="currentColor"/></g></symbol>
+    <symbol id="i-token" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#e3b341"/><circle cx="12" cy="12" r="7.2" fill="none" stroke="#9a6c0b" stroke-width="1.6"/><path d="M8.6 9.2h6.8M12 9.2v6.4" stroke="#7a5306" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7"/></g></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l7 2.8v5.4c0 4.3-2.9 7.6-7 8.8-4.1-1.2-7-4.5-7-8.8V6.3z"/><path d="M9 12l2.2 2.2L15.3 10" stroke-linecap="round"/></g></symbol>
+    <symbol id="i-up" viewBox="0 0 12 12"><path d="M6 2.5l4 6H2z" fill="currentColor"/></symbol>
+    <symbol id="i-down" viewBox="0 0 12 12"><path d="M6 9.5l-4-6h8z" fill="currentColor"/></symbol>
+  </svg>
+
+  <div class="app">
+    <header class="appbar" id="appbar">
+      <a class="brand" href="#overview" data-nav="overview" aria-label="MY ASX Options, overview" data-agent-id="link_brand_home" data-testid="link_brand_home">
+        <svg class="brand-mark" aria-hidden="true"><use href="#i-logo"/></svg>
+        <span class="brand-text"><strong>MY ASX Options</strong><small>Gov Contract Radar</small></span>
+      </a>
+      <div class="appbar-tools">
+        <div class="report-picker">
+          <label for="report-select" class="visually-hidden">Report</label>
+          <select id="report-select" disabled data-agent-id="select_report" data-testid="select_report"><option>Loading…</option></select>
+        </div>
+        <button class="wallet-btn" id="wallet-btn" type="button" hidden aria-haspopup="dialog" data-agent-id="btn_open_wallet" data-testid="btn_open_wallet">
+          <svg class="token-icon" aria-hidden="true"><use href="#i-token"/></svg><span id="wallet-balance">0</span><span class="visually-hidden"> tokens: open wallet</span>
+        </button>
+        <button class="btn btn-primary" id="run-btn" type="button" aria-label="Refresh report" data-agent-id="btn_run_report" data-testid="btn_run_report">
+          <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span class="btn-text">Refresh</span>
+        </button>
+        <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch colour theme" data-agent-id="btn_toggle_theme" data-testid="btn_toggle_theme">
+          <svg class="icon" aria-hidden="true"><use href="#i-theme"/></svg>
+        </button>
+      </div>
+      <div class="run-progress" id="run-progress" hidden>
+        <div class="run-progress-track" role="progressbar" aria-label="Report progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="run-progress-fill"></div>
+        </div>
+        <p class="run-progress-label" id="run-progress-label"></p>
+      </div>
+    </header>
+
+    <nav class="sidenav" aria-label="Sections">
+      <ul class="nav-list">
+        <li><a href="#overview" data-nav="overview" data-agent-id="nav_overview_side" data-testid="nav_overview_side"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span class="nav-label">Overview</span></a></li>
+        <li><a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed_side" data-testid="nav_confirmed_side"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span class="nav-label">Confirmed</span><span class="nav-count" data-count="confirmed"></span></a></li>
+        <li><a href="#upcoming" data-nav="upcoming" data-agent-id="nav_upcoming_side" data-testid="nav_upcoming_side"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="nav-label">Upcoming</span><span class="nav-count" data-count="upcoming"></span></a></li>
+        <li><a href="#other" data-nav="other" data-agent-id="nav_other_side" data-testid="nav_other_side"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span class="nav-label">Other ASX</span><span class="nav-count" data-count="other"></span></a></li>
+        <li><a href="#settings" data-nav="settings" data-agent-id="nav_settings_side" data-testid="nav_settings_side"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-label">Settings</span></a></li>
+      </ul>
+      <p class="sidenav-note" id="schedule-note"></p>
+    </nav>
+
+    <main class="main" id="main" data-view="overview" tabindex="-1" aria-busy="true">
+      <div class="filters" id="filters" role="search" aria-label="Filter the report">
+        <div class="filters-row">
+          <div class="search">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <label for="f-search" class="visually-hidden">Search the report</label>
+            <input id="f-search" type="search" placeholder="Search company, ticker, agency…" autocomplete="off" spellcheck="false" data-agent-id="input_search" data-testid="input_search">
+          </div>
+          <button class="btn btn-ghost filters-toggle" id="filters-toggle" type="button" aria-expanded="false" aria-controls="filters-more" data-agent-id="btn_toggle_filters" data-testid="btn_toggle_filters">
+            <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg><span>Filters</span><span class="filters-badge" id="filters-badge" hidden></span>
+          </button>
+        </div>
+        <div class="filters-more" id="filters-more">
+          <div class="seg" role="radiogroup" aria-label="Show">
+            <button type="button" role="radio" aria-checked="true" data-scope="all" data-agent-id="radio_scope_all" data-testid="radio_scope_all">All</button>
+            <button type="button" role="radio" aria-checked="false" data-scope="asx" data-agent-id="radio_scope_asx" data-testid="radio_scope_asx">ASX-listed</button>
+            <button type="button" role="radio" aria-checked="false" data-scope="options" data-agent-id="radio_scope_options" data-testid="radio_scope_options">Has options</button>
+            <button type="button" role="radio" aria-checked="false" data-scope="watchlist" data-agent-id="radio_scope_watchlist" data-testid="radio_scope_watchlist">Watchlist</button>
+          </div>
+          <div class="select">
+            <label for="f-sector" class="visually-hidden">Sector</label>
+            <select id="f-sector" data-agent-id="select_sector" data-testid="select_sector"><option value="">All sectors</option></select>
+          </div>
+          <div class="select">
+            <label for="f-jur" class="visually-hidden">Government</label>
+            <select id="f-jur" data-agent-id="select_jurisdiction" data-testid="select_jurisdiction"><option value="">All governments</option></select>
+          </div>
+          <div class="select">
+            <label for="f-source" class="visually-hidden">Source</label>
+            <select id="f-source" data-agent-id="select_source" data-testid="select_source">
+              <option value="">All sources</option>
+              <option value="asx">ASX announcements</option>
+              <option value="austender">AusTender</option>
+              <option value="news">News</option>
+              <option value="atm">AusTender tenders</option>
+              <option value="ai">AI analyst</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-link" id="f-clear" hidden data-agent-id="btn_clear_filters" data-testid="btn_clear_filters">Clear filters</button>
+        </div>
+      </div>
+
+      <section class="view" id="overview" data-view="overview" aria-labelledby="overview-title">
+        <div class="report-head">
+          <p class="eyebrow" id="report-eyebrow">Government contract intelligence</p>
+          <h1 id="overview-title">Daily brief</h1>
+          <p class="report-meta" id="report-meta"></p>
+        </div>
+        <div class="notices" id="notices"></div>
+        <div class="kpis" id="kpis" aria-live="polite"></div>
+        <article class="card takeaways-card" aria-labelledby="takeaways-title">
+          <h2 class="card-title" id="takeaways-title">Section 3 · Strategic key takeaways</h2>
+          <ol class="takeaways" id="takeaways"></ol>
+        </article>
+        <article class="card" aria-labelledby="sectors-title">
+          <h2 class="card-title" id="sectors-title">Confirmed items by sector</h2>
+          <p class="card-sub">Number of confirmed contracts in view, with disclosed value (AUD)</p>
+          <div class="bars" id="sector-bars" role="list"></div>
+        </article>
+      </section>
+
+      <section class="view" id="confirmed" data-view="confirmed" aria-labelledby="confirmed-title">
+        <header class="section-head">
+          <div>
+            <h2 id="confirmed-title">Section 1 · Confirmed contracts</h2>
+            <p class="section-sub">Past 7 days: awards, signed agreements and purchase orders</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn btn-ghost" type="button" data-action="copy-md" aria-label="Copy the brief as Markdown" data-agent-id="btn_copy_markdown" data-testid="btn_copy_markdown"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy Markdown</span></button>
+            <a class="btn btn-ghost" data-action="csv" href="#" download aria-label="Download the report as CSV" data-agent-id="link_download_csv" data-testid="link_download_csv"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>CSV</span></a>
+          </div>
+        </header>
+        <div class="table-wrap"><table class="data-table" id="confirmed-table" role="table"></table></div>
+      </section>
+
+      <section class="view" id="upcoming" data-view="upcoming" aria-labelledby="upcoming-title">
+        <header class="section-head">
+          <div>
+            <h2 id="upcoming-title">Section 2 · Upcoming contracts &amp; speculation</h2>
+            <p class="section-sub">Next 7 days: tenders, shortlists, preferred bidders and expected decisions</p>
+          </div>
+        </header>
+        <div class="table-wrap"><table class="data-table" id="upcoming-table" role="table"></table></div>
+      </section>
+
+      <section class="view" id="other" data-view="other" aria-labelledby="other-title">
+        <header class="section-head">
+          <div>
+            <h2 id="other-title">Other ASX contract news</h2>
+            <p class="section-sub">Listed companies announcing contracts where no Australian government counterparty was identified. Not part of the brief, but often price-moving.</p>
+          </div>
+        </header>
+        <div class="table-wrap"><table class="data-table" id="other-table" role="table"></table></div>
+      </section>
+
+      <section class="view" id="settings" data-view="settings" aria-labelledby="settings-title">
+        <header class="section-head">
+          <div>
+            <h2 id="settings-title">Settings &amp; sources</h2>
+            <p class="section-sub">Saved on this computer in <code>data/settings.json</code>. Changes apply from the next report.</p>
+          </div>
+        </header>
+        <div class="settings-grid">
+          <form class="card" id="watchlist-form" novalidate data-agent-id="form_watchlist" data-testid="form_watchlist" data-schema-target="Settings.watchlist" aria-labelledby="watchlist-title">
+            <h3 class="card-title" id="watchlist-title">Watchlist</h3>
+            <p class="card-sub" id="watchlist-hint">ASX codes you hold or trade options on. Matching contracts get a star and their own filter.</p>
+            <ul class="chips" id="watchlist-chips" aria-label="Watchlist tickers"></ul>
+            <div class="inline-form">
+              <div class="field grow">
+                <label for="watchlist-input">Add ASX codes</label>
+                <input id="watchlist-input" name="watchlist" placeholder="e.g. DRO, EOS, TNE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="watchlist-hint watchlist-error" data-schema-path="watchlist" data-agent-id="input_watchlist_add" data-testid="input_watchlist_add">
+                <span id="watchlist-error" class="error-msg" data-agent-error="watchlist" aria-live="assertive"></span>
+              </div>
+              <button class="btn btn-primary" type="submit" data-agent-id="btn_watchlist_add" data-testid="btn_watchlist_add">Add</button>
+            </div>
+          </form>
+
+          <form class="card" id="schedule-form" novalidate data-agent-id="form_schedule" data-testid="form_schedule" data-schema-target="Settings.schedule" aria-labelledby="schedule-title">
+            <h3 class="card-title" id="schedule-title">Daily schedule</h3>
+            <div class="schema-fields" data-fields></div>
+            <p class="hint" id="schedule-hint"></p>
+          </form>
+
+          <form class="card" id="sources-form" novalidate data-agent-id="form_sources" data-testid="form_sources" data-schema-target="Settings.sources" aria-labelledby="sources-title">
+            <h3 class="card-title" id="sources-title">Sources</h3>
+            <div class="schema-fields" data-fields></div>
+          </form>
+
+          <form class="card" id="ai-form" novalidate data-agent-id="form_ai" data-testid="form_ai" data-schema-target="Settings.ai" aria-labelledby="ai-title">
+            <h3 class="card-title" id="ai-title"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg> AI analyst <small class="muted">optional</small></h3>
+            <p id="ai-status" class="card-sub"></p>
+            <div class="schema-fields inline-form" data-fields></div>
+            <button class="btn btn-primary" id="ai-run-btn" type="button" data-agent-id="btn_run_ai" data-testid="btn_run_ai"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg><span>Run AI analysis now</span></button>
+            <p class="hint">Runs the analyst brief on Claude Opus 5.5 with web search, seeded with this app's leads. Usage is billed to your Anthropic account; each AI report shows its estimated cost.</p>
+          </form>
+
+          <section class="card" aria-labelledby="admin-link-title">
+            <h3 class="card-title" id="admin-link-title"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg> Superadmin</h3>
+            <p class="card-sub">Token system, currencies, token prices, saleable items and wallets.</p>
+            <a class="btn btn-ghost" href="#admin" data-nav="admin" data-agent-id="link_open_admin" data-testid="link_open_admin">Open Superadmin panel</a>
+          </section>
+
+          <section class="card card-wide" aria-labelledby="health-title">
+            <h3 class="card-title" id="health-title">Source health for this report</h3>
+            <div class="table-wrap"><table class="data-table compact" id="sources-table" role="table"></table></div>
+          </section>
+
+          <section class="card card-wide" id="ai-output-card" aria-labelledby="ai-output-title" hidden>
+            <h3 class="card-title" id="ai-output-title">AI analyst report (as written)</h3>
+            <pre class="md-raw" id="ai-markdown"></pre>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="admin" data-view="admin" aria-labelledby="admin-title">
+        <header class="section-head">
+          <div>
+            <h2 id="admin-title">Superadmin panel</h2>
+            <p class="section-sub">Token economy for this app. All token amounts and prices are whole numbers.</p>
+          </div>
+          <div class="section-actions" id="admin-actions"></div>
+        </header>
+        <div id="admin-root"></div>
+      </section>
+
+      <footer class="app-foot">
+        <p>Research aid, not financial advice. Data from AusTender (Department of Finance, CC BY 3.0 AU), ASX, Google News and publisher feeds; prices are delayed. Rule-based extraction can misread a story, so check the linked source before acting.</p>
+      </footer>
+    </main>
+
+    <nav class="bottomnav" aria-label="Sections">
+      <a href="#overview" data-nav="overview" data-agent-id="nav_overview_bottom" data-testid="nav_overview_bottom"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span>Brief</span></a>
+      <a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed_bottom" data-testid="nav_confirmed_bottom"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></a>
+      <a href="#upcoming" data-nav="upcoming" data-agent-id="nav_upcoming_bottom" data-testid="nav_upcoming_bottom"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span>Upcoming</span></a>
+      <a href="#other" data-nav="other" data-agent-id="nav_other_bottom" data-testid="nav_other_bottom"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span>Other</span></a>
+      <a href="#settings" data-nav="settings" data-agent-id="nav_settings_bottom" data-testid="nav_settings_bottom"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span>Settings</span></a>
+    </nav>
+  </div>
+
+  <dialog class="dialog" id="detail" aria-labelledby="detail-title" data-agent-id="dialog_detail" data-testid="dialog_detail">
+    <div class="dialog-inner">
+      <header class="dialog-head">
+        <div class="dialog-heading">
+          <p class="eyebrow" id="detail-eyebrow"></p>
+          <h2 id="detail-title"></h2>
+        </div>
+        <button class="icon-btn" type="button" data-close aria-label="Close details" data-agent-id="btn_close_detail" data-testid="btn_close_detail"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </header>
+      <div class="dialog-body" id="detail-body"></div>
+    </div>
+  </dialog>
+
+  <dialog class="dialog dialog-small" id="token-dialog" aria-labelledby="token-title" data-agent-id="dialog_tokens" data-testid="dialog_tokens">
+    <div class="dialog-inner">
+      <header class="dialog-head">
+        <div class="dialog-heading"><h2 id="token-title"></h2></div>
+        <button class="icon-btn" type="button" data-close-token aria-label="Close" data-agent-id="btn_close_token_dialog" data-testid="btn_close_token_dialog"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </header>
+      <div class="dialog-body" id="token-body"></div>
+    </div>
+  </dialog>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div id="agent-status" class="visually-hidden" role="status" aria-live="polite" data-agent-status="idle">Loading</div>
+</body>
+</html>
