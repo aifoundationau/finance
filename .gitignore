@@ -1,3 +1,6 @@
 node_modules/
-data/
+# Runtime data at the project root only (reports, caches, settings). src/data/ is source code.
+/data/
 .env
+.env.*
+!.env.example
