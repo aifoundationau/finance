@@ -1,5 +1,5 @@
-import { assertValid } from "../shared/json-schema.js";
-import { REPORT } from "../shared/schemas.js";
+import { assertValid } from "../public/shared/json-schema.js";
+import { REPORT } from "../public/shared/schemas.js";
 import { storage } from "./storage.js";
 
 const ID_RE = /^\d{4}-\d{2}-\d{2}-(?:standard|ai)$/;

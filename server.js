@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { waitUntil } from "@vercel/functions";
-import { ROOT, aiConfigured, allowedHosts, config, publicDeployment } from "./src/config.js";
+import { aiConfigured, allowedHosts, config, publicDeployment } from "./src/config.js";
 import { loadSettings, saveSettings } from "./src/settings.js";
 import { isReportId, listReports, loadReport } from "./src/store.js";
 import { getRun, startRun } from "./src/runs.js";
@@ -19,11 +19,11 @@ import {
   isHttps, login, logoutCookie, parseCookies,
 } from "./src/admin.js";
 import { idempotent } from "./src/idempotency.js";
-import { assertValid } from "./shared/json-schema.js";
+import { assertValid } from "./public/shared/json-schema.js";
 import {
   COMMERCE_SETTINGS_PATCH, EMPTY_REQUEST, ITEM_INPUT, ITEM_PATCH, LOGIN_REQUEST, REPORT, RUN_REQUEST, SETTINGS_PATCH,
   UNLOCK_REQUEST, WALLET_ADJUST_REQUEST,
-} from "./shared/schemas.js";
+} from "./public/shared/schemas.js";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -378,11 +378,9 @@ function guard(req) {
   return null;
 }
 
-// Static files: the front end from public/, plus the shared schema/validator modules.
-const STATIC_ROOTS = [
-  { prefix: "/shared/", dir: path.join(ROOT, "shared") },
-  { prefix: "/", dir: config.publicDir },
-];
+// Static files: the front end from public/, including public/shared/ (the schema, validator and
+// retry modules the server also imports). On Vercel the CDN serves public/ and these never run.
+const STATIC_ROOTS = [{ prefix: "/", dir: config.publicDir }];
 
 async function serveStatic(res, urlPath) {
   const root = STATIC_ROOTS.find((r) => urlPath.startsWith(r.prefix));

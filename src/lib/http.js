@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { RETRY, RETRYABLE_STATUS, backoffDelay, sleep } from "../../shared/retry.js";
+import { RETRY, RETRYABLE_STATUS, backoffDelay, sleep } from "../../public/shared/retry.js";
 
 export class HttpError extends Error {
   constructor(status, url) {

@@ -10,8 +10,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch-path=server.js --watch-path=src --watch-path=shared server.js",
-    "build": "node scripts/copy-shared.js",
+    "dev": "node --watch-path=server.js --watch-path=src --watch-path=public/shared server.js",
     "report": "node scripts/run-report.js",
     "report:ai": "node scripts/run-report.js --ai",
     "test": "node --test \"test/*.test.js\""

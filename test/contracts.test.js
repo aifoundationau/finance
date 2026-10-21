@@ -1,8 +1,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { SchemaError, assertValid, validate } from "../shared/json-schema.js";
-import { ITEM_INPUT, REPORT, SETTINGS, SETTINGS_PATCH, UNLOCK_REQUEST, WALLET_ADJUST_REQUEST } from "../shared/schemas.js";
-import { RETRY, backoffDelay } from "../shared/retry.js";
+import { SchemaError, assertValid, validate } from "../public/shared/json-schema.js";
+import { ITEM_INPUT, REPORT, SETTINGS, SETTINGS_PATCH, UNLOCK_REQUEST, WALLET_ADJUST_REQUEST } from "../public/shared/schemas.js";
+import { RETRY, backoffDelay } from "../public/shared/retry.js";
 import { DEFAULT_SETTINGS } from "../src/settings.js";
 import { _clearForTests, idempotent } from "../src/idempotency.js";
 

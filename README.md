@@ -131,10 +131,10 @@ It also adapts to touch versus mouse, short landscape screens, dark mode, reduce
 
 The app follows the agentic architecture rule in `.agents/rules/dom-agentic-architecture.md`, so people, scripts and browser agents can drive it reliably.
 
-- **Schemas:** `shared/schemas.js` holds one JSON Schema per contract: settings, every request body, commerce state and the saved report. Every object sets `required` and `additionalProperties: false`. The server rejects a body that fails its schema with `400 VALIDATION_FAILED` and a `fields` list. A report that fails its schema is never saved. The browser builds the Settings and Superadmin forms from the same schemas, so client and server checks always agree.
+- **Schemas:** `public/shared/schemas.js` holds one JSON Schema per contract: settings, every request body, commerce state and the saved report. Every object sets `required` and `additionalProperties: false`. The server rejects a body that fails its schema with `400 VALIDATION_FAILED` and a `fields` list. A report that fails its schema is never saved. The browser builds the Settings and Superadmin forms from the same schemas, so client and server checks always agree.
 - **API:** `GET /api/openapi.json` describes every endpoint and its request schema. Errors are always `{ error, code, fields? }`.
 - **Idempotency:** every POST, PUT and DELETE must send an `x-idempotency-key` header (8–128 letters, digits, `-` or `_`). If the same key arrives again with the same request, the server replays the first response (`idempotent-replayed: true`) rather than running the request again. The same key with a different body gets `422`. A missing key gets `428`.
-- **Retries:** the client and the report fetchers share `shared/retry.js`. It starts at 500 ms, doubles each time, adds up to 250 ms of jitter and allows at most 3 retries.
+- **Retries:** the client and the report fetchers share `public/shared/retry.js`. It starts at 500 ms, doubles each time, adds up to 250 ms of jitter and allows at most 3 retries.
 - **DOM:** every interactive element has a matching `data-agent-id` and `data-testid`, every input has a `<label for>`, and field errors appear in `[data-agent-error="<path>"]` nodes linked by `aria-describedby`. The page shows `body[data-ready="true"]` when nothing is loading, and `#agent-status` (an `aria-live` region) shows the current state or the latest error.
 - **Driver:** `window.AntigravityDOMDriver` (`public/agent-driver.js`) offers `waitForReady`, `executeSafeClick`, `executeSafeInput`, `executeSafeSelect`, `executeSafeToggle` and `validateAndDispatch`. Each action waits up to 3 s for its target and checks that the target is visible, enabled and not covered. It then confirms the result and returns `{ success, data?, error?, diagnostics?, timestamp }`.
 
@@ -149,7 +149,7 @@ src/lib/                classifier, entity resolver, dedupe, takeaways, Markdown
 src/data/               government agencies, supplier aliases, UNSPSC categories
 src/ai/                 AI analyst (Anthropic SDK) and the brief
 src/commerce.js, src/admin.js, src/idempotency.js   tokens, superadmin sessions, idempotency store
-shared/                 JSON Schemas, schema validator and retry policy (used by server and browser)
+public/shared/          JSON Schemas, schema validator and retry policy (used by server and browser)
 public/                 the responsive front end (no build step): app.js, js/ (DOM, API, schema forms), agent-driver.js
 data/                   reports, caches and settings (created at runtime)
 ```
