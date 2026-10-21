@@ -16,7 +16,16 @@ if (fs.existsSync(envFile)) {
 
 // On Vercel the app runs as a serverless function: no long-lived process, a read-only file
 // system apart from /tmp, and scheduling through Vercel Cron instead of an in-process timer.
-const serverless = Boolean(process.env.VERCEL);
+// Vercel's own variables are only present when the project exposes system environment
+// variables, so the AWS Lambda markers (always set where Vercel Functions run) count too.
+const serverless = Boolean(
+  process.env.VERCEL ||
+    process.env.VERCEL_ENV ||
+    process.env.VERCEL_REGION ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.LAMBDA_TASK_ROOT ||
+    process.cwd().startsWith("/var/task"),
+);
 
 export const config = {
   serverless,
