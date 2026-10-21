@@ -27,4 +27,15 @@ export const config = {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
 };
 
-export const aiConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+/**
+ * Public host names the server answers to besides localhost: ALLOWED_HOSTS (comma-separated,
+ * for custom domains) plus the deployment domains Vercel provides in its system variables.
+ */
+export const allowedHosts = new Set(
+  [process.env.ALLOWED_HOSTS, process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
+    .flatMap((v) => (v ?? "").split(","))
+    .map((h) => h.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/[:/].*$/, ""))
+    .filter(Boolean),
+);
+
+export const aiConfigured =() => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);

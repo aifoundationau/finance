@@ -2,7 +2,7 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { ROOT, aiConfigured, config } from "./src/config.js";
+import { ROOT, aiConfigured, allowedHosts, config } from "./src/config.js";
 import { runPipeline } from "./src/pipeline.js";
 import { loadSettings, saveSettings } from "./src/settings.js";
 import { isReportId, listReports, loadReport, saveReport } from "./src/store.js";
@@ -38,7 +38,10 @@ const SECURITY_HEADERS = {
   "cross-origin-opener-policy": "same-origin",
 };
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
-const loopbackOnly = LOOPBACK.has(config.host);
+// Host names accepted in the Host header. Locally only loopback; deployed, the Vercel domains
+// and ALLOWED_HOSTS. null (HOST set to a public interface with no list) accepts any host.
+const permittedHosts = allowedHosts.size ? new Set([...LOOPBACK, ...allowedHosts]) : LOOPBACK.has(config.host) ? LOOPBACK : null;
+const bareHost = (value) => String(value ?? "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
 const STATUS_CODES = { 400: "VALIDATION_FAILED", 401: "UNAUTHENTICATED", 402: "INSUFFICIENT_TOKENS", 403: "FORBIDDEN", 404: "NOT_FOUND", 409: "CONFLICT", 413: "PAYLOAD_TOO_LARGE", 422: "UNPROCESSABLE", 428: "PRECONDITION_REQUIRED", 429: "RATE_LIMITED", 503: "UNAVAILABLE" };
 
 /** Structured telemetry: one JSON line per notable event. */
@@ -308,8 +311,7 @@ function send(res, { status = 200, body, headers = {}, cookies = [] }) {
 
 /** Blocks DNS rebinding (Host) and cross-site writes (Origin / content type). */
 function guard(req) {
-  const host = (req.headers.host ?? "").replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
-  if (loopbackOnly && !LOOPBACK.has(host)) return "Unexpected Host header";
+  if (permittedHosts && !permittedHosts.has(bareHost(req.headers.host))) return "Unexpected Host header";
   if (req.method !== "GET" && req.method !== "HEAD") {
     if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return "Writes must be application/json";
     const origin = req.headers.origin;
@@ -320,7 +322,9 @@ function guard(req) {
       } catch {
         // "null" (sandboxed frames) or malformed: treat as cross-origin
       }
-      if (originHost !== req.headers.host) return "Cross-origin request refused";
+      // Behind a proxy the public host may arrive as x-forwarded-host.
+      const ownHosts = [req.headers.host, req.headers["x-forwarded-host"]].filter(Boolean).map((v) => String(v).split(",")[0].trim().toLowerCase());
+      if (!ownHosts.includes(originHost?.toLowerCase())) return "Cross-origin request refused";
     }
   }
   return null;
