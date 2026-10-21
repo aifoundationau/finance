@@ -11,6 +11,9 @@ import {
   SETTINGS_PATCH, WALLET_ADJUST_REQUEST,
 } from "/shared/schemas.js";
 
+// Tells boot-check.js the module graph loaded (an import that fails stops this file running).
+window.__maoStarted = true;
+
 const VIEWS = ["overview", "confirmed", "upcoming", "other", "settings", "admin"];
 const DETAILS_ITEM_ID = "contract-details"; // the saleable item that unlocks value/scope and sources
 const BRIEF_VIEWS = new Set(["overview", "confirmed", "upcoming"]);

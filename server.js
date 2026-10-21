@@ -43,9 +43,13 @@ const SECURITY_HEADERS = {
   "cross-origin-opener-policy": "same-origin",
 };
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
-// Host names accepted in the Host header. Locally only loopback; deployed, the Vercel domains
-// and ALLOWED_HOSTS. null (HOST set to a public interface with no list) accepts any host.
-const permittedHosts = allowedHosts.size ? new Set([...LOOPBACK, ...allowedHosts]) : LOOPBACK.has(config.host) ? LOOPBACK : null;
+// Host names accepted in the Host header (against DNS rebinding). Locally only loopback, plus
+// ALLOWED_HOSTS. null accepts any host: on Vercel, which only routes this project's own domains
+// here (a project has several, and the function is told just one of them), and when HOST is a
+// public interface with no list.
+const permittedHosts = config.serverless
+  ? null
+  : allowedHosts.size ? new Set([...LOOPBACK, ...allowedHosts]) : LOOPBACK.has(config.host) ? LOOPBACK : null;
 const bareHost = (value) => String(value ?? "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
 const STATUS_CODES = { 400: "VALIDATION_FAILED", 401: "UNAUTHENTICATED", 402: "INSUFFICIENT_TOKENS", 403: "FORBIDDEN", 404: "NOT_FOUND", 409: "CONFLICT", 413: "PAYLOAD_TOO_LARGE", 422: "UNPROCESSABLE", 428: "PRECONDITION_REQUIRED", 429: "RATE_LIMITED", 503: "UNAVAILABLE" };
 
