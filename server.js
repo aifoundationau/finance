@@ -126,10 +126,13 @@ async function readBody(req, limit = 64 * 1024) {
 // ------------------------------------------------------------------ route handlers
 
 async function status(ctx) {
+  const hasReports = (await listReports()).length > 0;
   return {
     ...(await getRun()),
     aiConfigured: aiConfigured(),
     canManage: canManage(ctx.req),
+    // A new deployment starts with no report; any visitor may start that first standard run.
+    firstRunAllowed: !hasReports,
     schedule: config.serverless
       ? { kind: "cron", note: "Daily report between 6 and 7 pm Sydney time (5 to 6 pm in winter), run by Vercel Cron." }
       : { kind: "local", note: null },
@@ -184,11 +187,19 @@ const ROUTES = [
     },
   },
   {
-    method: "POST", path: "/api/run", manage: true, summary: "Start a report run", schema: RUN_REQUEST,
+    method: "POST", path: "/api/run", summary: "Start a report run (superadmin on a public deployment, except the first standard report)", schema: RUN_REQUEST,
     handler: async (ctx) => {
+      if (!canManage(ctx.req)) {
+        const firstReport = ctx.body.mode === "standard" && (await listReports()).length === 0;
+        if (!firstReport) throw httpError(401, "Sign in as superadmin to change settings or run reports.");
+      }
       if (ctx.body.mode === "ai" && !aiConfigured()) throw httpError(400, "AI mode needs ANTHROPIC_API_KEY in .env. See README.", "AI_NOT_CONFIGURED");
-      if (!(await beginRun(ctx.body.mode, "manual")).started) throw httpError(409, "A report is already running", "RUN_IN_PROGRESS");
-      return { status: 202, body: await status(ctx) };
+      const { started, done } = await beginRun(ctx.body.mode, "manual");
+      if (!started) throw httpError(409, "A report is already running", "RUN_IN_PROGRESS");
+      // Serverless: answer only when the run has finished, so the platform cannot stop it
+      // halfway; the page polls /api/status for progress meanwhile.
+      if (config.serverless) await done;
+      return { status: config.serverless ? 200 : 202, body: await status(ctx) };
     },
   },
   { method: "GET", path: "/api/settings", summary: "App settings", handler: async () => ok(await loadSettings()) },

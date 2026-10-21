@@ -313,7 +313,7 @@ function renderNotices() {
   if (status?.storageWarning) items.push(notice("error", "i-alert", status.storageWarning));
   if (status?.error && !status.running) items.push(notice("error", "i-alert", `Last run failed: ${status.error}`));
   if (!r) {
-    items.push(notice("warn", "i-info", status?.running ? "Building the first report. This takes about half a minute." : "No report yet. Press Refresh to build the first one."));
+    items.push(notice("warn", "i-info", status?.running || state.runRequestPending ? "Building the first report. This takes about half a minute." : "No report yet. Press Refresh to build the first one."));
   } else {
     if (!r.confirmed.length && !r.upcoming.length) items.push(h("div", { class: "notice notice-empty" }, NO_FINDINGS));
     const failing = r.sources.filter((s) => s.status === "error");
@@ -1141,8 +1141,8 @@ function renderStatus() {
   const s = state.status;
   if (!s) return;
   const runBtn = $("#run-btn");
-  runBtn.disabled = s.running || !s.canManage;
-  runBtn.title = s.canManage ? "" : "Sign in as superadmin to refresh the report";
+  runBtn.disabled = s.running || state.runRequestPending || !(s.canManage || s.firstRunAllowed);
+  runBtn.title = s.canManage || s.firstRunAllowed ? "" : "Sign in as superadmin to refresh the report";
   runBtn.classList.toggle("is-busy", s.running);
   runBtn.setAttribute("aria-busy", String(s.running));
   $(".btn-text", runBtn).textContent = s.running ? "Running…" : "Refresh";
@@ -1179,8 +1179,8 @@ async function refreshStatus() {
     return;
   }
   renderStatus();
-  if (state.status.running) {
-    state.wasRunning = true;
+  if (state.status.running || state.runRequestPending) {
+    if (state.status.running) state.wasRunning = true;
     clearTimeout(state.pollTimer);
     state.pollTimer = setTimeout(refreshStatus, 1200);
   } else if (state.wasRunning) {
@@ -1202,14 +1202,22 @@ async function onRunFinished() {
 }
 
 async function startRun(mode) {
+  // On Vercel the request lasts until the run ends, so progress comes from polling meanwhile.
+  state.wasRunning = true;
+  state.runRequestPending = true;
+  const request = api("POST", "/api/run", { mode });
+  renderNotices();
+  if (state.status) renderStatus();
+  setTimeout(refreshStatus, 800);
   try {
-    state.status = await api("POST", "/api/run", { mode });
-    state.wasRunning = true;
+    state.status = await request;
     renderStatus();
     renderNotices();
-    refreshStatus();
   } catch (err) {
     announce(err.message, "error");
+  } finally {
+    state.runRequestPending = false;
+    refreshStatus();
   }
 }
 
@@ -1480,6 +1488,9 @@ async function init() {
         if (status.running) {
           state.wasRunning = true;
           refreshStatus();
+        } else if (!id && status.firstRunAllowed) {
+          // A brand-new deployment: build the first report straight away.
+          startRun("standard");
         }
         setAgentStatus(status.running ? "busy" : "idle", status.running ? "Report running" : "Ready");
       } catch (err) {
