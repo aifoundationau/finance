@@ -41,6 +41,7 @@ const state = {
   commerce: null,
   admin: null,
   editingItem: null,
+  authError: null,
   view: "overview",
   filters: { q: "", scope: "all", sector: "", jur: "", source: "" },
   sort: "date",
@@ -309,6 +310,7 @@ function renderNotices() {
   const r = state.report;
   const items = [];
   const status = state.status;
+  if (status?.storageWarning) items.push(notice("error", "i-alert", status.storageWarning));
   if (status?.error && !status.running) items.push(notice("error", "i-alert", `Last run failed: ${status.error}`));
   if (!r) {
     items.push(notice("warn", "i-info", status?.running ? "Building the first report. This takes about half a minute." : "No report yet. Press Refresh to build the first one."));
@@ -773,6 +775,27 @@ function renderSettings() {
   }
   const aiSwitch = $("#settings-schedule-ai");
   if (aiSwitch) aiSwitch.disabled = !state.status?.aiConfigured;
+  applyManageAccess();
+}
+
+/** On a public deployment only the superadmin may change settings or start runs. */
+function applyManageAccess() {
+  const allowed = state.status?.canManage !== false;
+  for (const form of $$("#settings form")) {
+    for (const el of $$("input, select, textarea, button", form)) {
+      if (!allowed) el.disabled = true;
+      else if (el.dataset.lockedByAccess) el.disabled = false;
+      if (!allowed) el.dataset.lockedByAccess = "true";
+      else delete el.dataset.lockedByAccess;
+    }
+  }
+  for (const btn of $$("[data-remove]")) btn.hidden = !allowed;
+  const note = $("#manage-note");
+  if (note) note.hidden = allowed;
+  if (allowed) {
+    const aiSwitch = $("#settings-schedule-ai");
+    if (aiSwitch) aiSwitch.disabled = !state.status?.aiConfigured;
+  }
 }
 
 async function saveSettings(patch, { form, message = "Settings saved" } = {}) {
@@ -870,16 +893,32 @@ function renderAdmin() {
   SCHEMA_FORMS.clear();
   if (!c?.admin) {
     actions.replaceChildren();
-    root.replaceChildren(
-      schemaForm({
-        id: "admin-login",
-        schema: LOGIN_REQUEST,
-        title: "Superadmin sign-in",
-        className: "card admin-login",
-        submitLabel: "Sign in",
-        extra: c && !c.adminConfigured ? [h("p", { class: "notice notice-warn" }, "Set SUPERADMIN_PASSWORD in the .env file next to package.json, then restart the app.")] : [],
-      }),
-    );
+    const authError = state.authError
+      ? h("p", { class: "notice notice-warn", role: "alert", "data-agent-error": "_auth" }, state.authError)
+      : null;
+    if (c?.adminAuth === "google") {
+      root.replaceChildren(
+        h(
+          "section",
+          { class: "card admin-login", "aria-labelledby": "admin-google-title" },
+          h("h3", { class: "card-title", id: "admin-google-title" }, "Superadmin sign-in"),
+          h("p", { class: "card-sub" }, "Sign in with the Google account that is listed as superadmin."),
+          authError,
+          h("a", { class: "btn btn-primary", href: "/auth/google", ...agent("btn_admin_google_sign_in") }, icon("i-shield"), "Sign in with Google"),
+        ),
+      );
+      return;
+    }
+    const form = schemaForm({
+      id: "admin-login",
+      schema: LOGIN_REQUEST,
+      title: "Superadmin sign-in",
+      className: "card admin-login",
+      submitLabel: "Sign in",
+      extra: c && !c.adminAuth ? [h("p", { class: "notice notice-warn" }, "Superadmin access isn't set up. Add Google sign-in or SUPERADMIN_PASSWORD to the .env file next to package.json (see README), then restart the app.")] : [],
+    });
+    if (authError) form.insertBefore(authError, form.children[1]);
+    root.replaceChildren(form);
     return;
   }
   if (!state.admin) {
@@ -894,7 +933,10 @@ function renderAdmin() {
     return;
   }
   const a = state.admin;
-  actions.replaceChildren(h("button", { class: "btn btn-ghost", type: "button", "data-admin-logout": "", ...agent("btn_admin_sign_out") }, "Sign out"));
+  actions.replaceChildren(
+    c.adminIdentity && c.adminIdentity !== "password" ? h("span", { class: "cell-sub admin-identity" }, `Signed in as ${c.adminIdentity}`) : null,
+    h("button", { class: "btn btn-ghost", type: "button", "data-admin-logout": "", ...agent("btn_admin_sign_out") }, "Sign out"),
+  );
 
   const toggles = schemaForm({ id: "admin-toggles", schema: COMMERCE_SETTINGS_PATCH, only: ["isTokenSystemEnabled", "isAudEnabled", "isUsdEnabled"], values: a.settings, title: "System toggles" });
   const pricing = schemaForm({ id: "admin-pricing", schema: COMMERCE_SETTINGS_PATCH, only: ["tokenPriceAud", "tokenPriceUsd"], values: a.settings, title: "Token price", submitLabel: "Save prices" });
@@ -1033,7 +1075,9 @@ function bindAdmin() {
       try {
         await api("POST", "/api/admin/login", value);
         state.admin = null;
+        state.authError = null;
         await loadCommerce();
+        await refreshStatus();
         if (state.report) await loadReport(state.report.id);
         renderAdmin();
         announce("Signed in as superadmin");
@@ -1082,6 +1126,7 @@ function bindAdmin() {
       api("POST", "/api/admin/logout", {}).then(async () => {
         state.admin = null;
         await loadCommerce();
+        await refreshStatus();
         if (state.report) await loadReport(state.report.id);
         renderAdmin();
         announce("Signed out");
@@ -1096,7 +1141,8 @@ function renderStatus() {
   const s = state.status;
   if (!s) return;
   const runBtn = $("#run-btn");
-  runBtn.disabled = s.running;
+  runBtn.disabled = s.running || !s.canManage;
+  runBtn.title = s.canManage ? "" : "Sign in as superadmin to refresh the report";
   runBtn.classList.toggle("is-busy", s.running);
   runBtn.setAttribute("aria-busy", String(s.running));
   $(".btn-text", runBtn).textContent = s.running ? "Running…" : "Refresh";
@@ -1110,13 +1156,20 @@ function renderStatus() {
     setAgentStatus("busy", `Report running: ${s.label}`);
   }
   const aiBtn = $("#ai-run-btn");
-  aiBtn.disabled = s.running || !s.aiConfigured;
+  aiBtn.disabled = s.running || !s.aiConfigured || !s.canManage;
   $("#ai-status").textContent = s.aiConfigured
     ? "Ready: an Anthropic API key was found. AI mode re-checks the standard leads, searches the web for what they miss, and writes the three-section brief."
     : "Off: add ANTHROPIC_API_KEY to the .env file next to package.json and restart the app (see README). Everything else works without it.";
-  const next = s.nextScheduled ? `Next scheduled report: ${fmtDateTime(s.nextScheduled)}` : "Daily schedule is off";
-  $("#schedule-note").textContent = next;
-  $("#schedule-hint").textContent = `${next}. Scheduled runs only happen while this app is running; see the README for Windows Task Scheduler.`;
+  if (s.storage === "firestore") $("#settings-sub").textContent = "Saved in the cloud (Firestore) and shared by everyone using this app. Changes apply from the next report.";
+  if (s.schedule?.kind === "cron") {
+    $("#schedule-note").textContent = "Daily report: 6–7 pm Sydney";
+    $("#schedule-hint").textContent = `${s.schedule.note} The time setting below applies only when the app runs on your own computer.`;
+  } else {
+    const next = s.nextScheduled ? `Next scheduled report: ${fmtDateTime(s.nextScheduled)}` : "Daily schedule is off";
+    $("#schedule-note").textContent = next;
+    $("#schedule-hint").textContent = `${next}. Scheduled runs only happen while this app is running; see the README for Windows Task Scheduler.`;
+  }
+  applyManageAccess();
 }
 
 async function refreshStatus() {
@@ -1399,6 +1452,13 @@ function bindEvents() {
 
 async function init() {
   applyThemeLabel();
+  // Google sign-in returns here with ?auth_error= when it fails; show it once, then tidy the URL.
+  const params = new URLSearchParams(location.search);
+  if (params.has("auth_error")) {
+    state.authError = params.get("auth_error").slice(0, 300);
+    params.delete("auth_error");
+    history.replaceState(null, "", `${location.pathname}${params.size ? `?${params}` : ""}${location.hash}`);
+  }
   bindEvents();
   setView(location.hash.slice(1) || "overview", { scroll: false });
   await track(

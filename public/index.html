@@ -183,9 +183,10 @@
         <header class="section-head">
           <div>
             <h2 id="settings-title">Settings &amp; sources</h2>
-            <p class="section-sub">Saved on this computer in <code>data/settings.json</code>. Changes apply from the next report.</p>
+            <p class="section-sub" id="settings-sub">Saved on this computer in <code>data/settings.json</code>. Changes apply from the next report.</p>
           </div>
         </header>
+        <p class="notice notice-info" id="manage-note" hidden>Only the superadmin can change settings or run reports. <a href="#admin" data-nav="admin" data-agent-id="link_manage_sign_in" data-testid="link_manage_sign_in">Sign in</a></p>
         <div class="settings-grid">
           <form class="card" id="watchlist-form" novalidate data-agent-id="form_watchlist" data-testid="form_watchlist" data-schema-target="Settings.watchlist" aria-labelledby="watchlist-title">
             <h3 class="card-title" id="watchlist-title">Watchlist</h3>

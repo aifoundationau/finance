@@ -48,7 +48,7 @@ The app follows the workspace's token-economy rule (`.agents/rules/token-economy
 - **Enforced on the server:** locked fields are removed from the API, the Markdown and CSV exports, and the raw AI write-up, not just hidden in the page.
 - **Visitors see tokens only:** a token icon and a whole-number amount. Hovering (or focusing) the amount shows the dollar price in enabled currencies.
 - **Currencies:** AUD shows only to visitors in Australia; USD follows its own toggle. Behind a CDN, set `GEO_COUNTRY_HEADER` (e.g. `cf-ipcountry`); otherwise the browser's time zone and language decide.
-- **Superadmin panel:** open **Settings → Open Superadmin panel** (or `/#admin`) and sign in with `SUPERADMIN_PASSWORD` from `.env`. From there you can:
+- **Superadmin panel:** open **Settings → Open Superadmin panel** (or `/#admin`). Sign in with Google when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SUPERADMIN_EMAILS` are set (only the listed, Google-verified addresses get in); otherwise with `SUPERADMIN_PASSWORD` from `.env`. From there you can:
   - switch the token system, AUD and USD on or off independently
   - set whole-dollar token prices
   - create, edit, deactivate and delete saleable items
@@ -57,7 +57,7 @@ The app follows the workspace's token-economy rule (`.agents/rules/token-economy
 - **Payments:** online payment isn't connected yet, so the *Buy tokens* button is disabled. Credit wallets from the panel until a payment provider is added.
 - **Whole numbers:** all token amounts and prices are integers; anything else is rejected.
 
-Commerce state is stored in `data/commerce.json`.
+Commerce state is stored in `data/commerce.json`, or in Firestore when it is configured (see below).
 
 ## AI analyst (optional)
 
@@ -79,6 +79,23 @@ schtasks /Create /TN "MY ASX Options daily report" /SC DAILY /ST 18:00 /TR "\"C:
 ```
 
 Add `--ai` after the script path for AI reports. Reports are saved in `data/reports/` and appear in the app's report picker.
+
+## Deploying to Vercel
+
+On Vercel the app runs as a serverless function, which changes three things:
+
+- **Storage:** the file system is read-only, so data goes to **Cloud Firestore** (`FIREBASE_SERVICE_ACCOUNT`). Collections are prefixed `myAsxOptions_` so they can share a Firebase project. Without it the page loads but nothing can be saved, and a red notice says so.
+- **Schedule:** Vercel Cron calls `/api/cron/daily` once a day (`vercel.json`, `0 7 * * *` UTC: 6–7 pm Sydney in daylight time, 5–6 pm in winter). The Settings time applies only when you run the app yourself.
+- **Access:** settings and report runs need the superadmin, because the site is public and AI runs cost money. Visitors can read the brief.
+
+Steps:
+
+1. **Firestore key.** Firebase console → project `ai-foundation-firebase` → Project settings → Service accounts → **Generate new private key**. Put the JSON, on one line, in `FIREBASE_SERVICE_ACCOUNT`. If your organisation blocks key creation, an administrator must allow it for this project.
+2. **Google sign-in.** Google Cloud console → APIs & Services → Credentials → the existing OAuth client → **Authorised redirect URIs**: add `https://<your-production-domain>/auth/google/callback` (and `http://localhost:3000/auth/google/callback` to use Google sign-in locally). Don't create a new client.
+3. **Environment variables.** Vercel → Project → Settings → Environment Variables: paste `.env.production` (kept out of git), then fill in `GOOGLE_CLIENT_SECRET` and `FIREBASE_SERVICE_ACCOUNT`.
+4. **Deploy**, open the production domain, sign in under **Superadmin**, and press **Refresh** for the first report. If Vercel asks you to log in before showing the site, that's *Deployment Protection* (Project → Settings → Deployment Protection).
+
+To use Firestore from your own computer instead of `data/`, run `gcloud auth application-default login` and set `FIREBASE_SERVICE_ACCOUNT=adc` in `.env`.
 
 ## Using the app
 

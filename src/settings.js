@@ -1,6 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { config } from "./config.js";
+import { storage } from "./storage.js";
 
 export const DEFAULT_SETTINGS = {
   watchlist: [],
@@ -11,8 +9,6 @@ export const DEFAULT_SETTINGS = {
   includeLocalGovernment: false,
   ai: { maxSearches: 12, effort: "high" },
 };
-
-const settingsFile = () => path.join(config.dataDir, "settings.json");
 
 function merge(base, patch) {
   const out = structuredClone(base);
@@ -53,15 +49,16 @@ function sanitize(s) {
 
 export async function loadSettings() {
   try {
-    return sanitize(merge(DEFAULT_SETTINGS, JSON.parse(await fs.readFile(settingsFile(), "utf8"))));
+    const saved = await storage().get("app", "settings");
+    return saved ? sanitize(merge(DEFAULT_SETTINGS, saved)) : structuredClone(DEFAULT_SETTINGS);
   } catch {
     return structuredClone(DEFAULT_SETTINGS);
   }
 }
 
 export async function saveSettings(patch) {
-  const next = sanitize(merge(await loadSettings(), patch));
-  await fs.mkdir(config.dataDir, { recursive: true });
-  await fs.writeFile(settingsFile(), JSON.stringify(next, null, 2));
-  return next;
+  return storage().transact("app", "settings", async (saved) => {
+    const next = sanitize(merge(saved ? sanitize(merge(DEFAULT_SETTINGS, saved)) : DEFAULT_SETTINGS, patch));
+    return { value: next, result: next };
+  });
 }

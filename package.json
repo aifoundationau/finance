@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",
+    "@vercel/functions": "^3.10.2",
+    "firebase-admin": "^13.10.0",
     "unpdf": "^1.9.1"
   }
 }

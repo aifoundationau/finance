@@ -2,17 +2,22 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import { ROOT, aiConfigured, allowedHosts, config } from "./src/config.js";
-import { runPipeline } from "./src/pipeline.js";
+import { waitUntil } from "@vercel/functions";
+import { ROOT, aiConfigured, allowedHosts, config, publicDeployment } from "./src/config.js";
 import { loadSettings, saveSettings } from "./src/settings.js";
-import { isReportId, listReports, loadReport, saveReport } from "./src/store.js";
+import { isReportId, listReports, loadReport } from "./src/store.js";
+import { getRun, startRun } from "./src/runs.js";
+import { storage } from "./src/storage.js";
 import { reportToCsv, reportToMarkdown } from "./src/lib/markdown.js";
 import { nextRunAt, sydneyDate } from "./src/lib/dates.js";
 import {
   adjustWallet, adminView, createItem, deleteItem, ensureWallet, getState, publicCommerce, redactReport, unlockItem,
   updateItem, updateSettings, viewerCountry,
 } from "./src/commerce.js";
-import { ADMIN_COOKIE, WALLET_COOKIE, adminConfigured, cookie, isAdmin, login, logout, parseCookies } from "./src/admin.js";
+import {
+  ADMIN_COOKIE, AuthError, WALLET_COOKIE, adminIdentity, authMode, clearOAuthCookie, cookie, googleCallback, googleStart, isAdmin,
+  isHttps, login, logoutCookie, parseCookies,
+} from "./src/admin.js";
 import { idempotent } from "./src/idempotency.js";
 import { assertValid } from "./shared/json-schema.js";
 import {
@@ -51,43 +56,22 @@ function telemetry(level, event, fields) {
   else console.log(line);
 }
 
-// ------------------------------------------------------------------ report runs
+// ------------------------------------------------------------------ report runs and schedule
 
-const run = { running: false, mode: null, trigger: null, startedAt: null, finishedAt: null, label: "", pct: 0, error: null, log: [], lastReportId: null };
 let scheduleTimer = null;
 let nextScheduled = null;
 
-async function startRun(mode, trigger) {
-  if (run.running) return false;
-  Object.assign(run, { running: true, mode, trigger, startedAt: new Date().toISOString(), finishedAt: null, label: "Starting", pct: 1, error: null, log: [] });
-  const settings = await loadSettings();
-  const onProgress = ({ label, pct }) => {
-    run.label = label;
-    run.pct = Math.max(run.pct, pct);
-    if (run.log.at(-1) !== label) run.log.push(label);
-    if (run.log.length > 40) run.log.shift();
-  };
-  runPipeline({ mode, settings, onProgress })
-    .then(async (reports) => {
-      for (const r of reports) await saveReport(r);
-      run.lastReportId = reports.at(-1).id;
-      run.label = "Report ready";
-      run.pct = 100;
-      telemetry("info", "run.completed", { trigger, mode, reports: reports.map((r) => r.id) });
-    })
-    .catch((err) => {
-      run.error = err.message;
-      run.label = "Run failed";
-      telemetry("error", "run.failed", { trigger, mode, code: err.code ?? "RUN_FAILED", message: err.message, fields: err.fields?.slice(0, 5) });
-    })
-    .finally(() => {
-      run.running = false;
-      run.finishedAt = new Date().toISOString();
-    });
-  return true;
+/** Starts a run; on Vercel the function is kept alive until it finishes (up to its time limit). */
+async function beginRun(mode, trigger) {
+  const { started, done } = await startRun(mode, trigger, { log: telemetry });
+  if (started) waitUntil(done);
+  return { started, done };
 }
 
+// Local only: an in-process timer for the daily report. On Vercel, Vercel Cron calls
+// /api/cron/daily instead (see vercel.json).
 async function scheduleNext() {
+  if (config.serverless) return;
   clearTimeout(scheduleTimer);
   const settings = await loadSettings();
   nextScheduled = settings.schedule.enabled ? nextRunAt(settings.schedule.time) : null;
@@ -95,7 +79,7 @@ async function scheduleNext() {
   scheduleTimer = setTimeout(
     async () => {
       const current = await loadSettings();
-      await startRun(current.schedule.ai && aiConfigured() ? "ai" : "standard", "schedule");
+      await beginRun(current.schedule.ai && aiConfigured() ? "ai" : "standard", "schedule");
       scheduleNext();
     },
     Math.min(nextScheduled.getTime() - Date.now(), 2 ** 31 - 1),
@@ -112,13 +96,16 @@ const httpError = (status, message, code = STATUS_CODES[status]) => Object.assig
 const walletLabel = (id) => crypto.createHash("sha256").update(id).digest("hex").slice(0, 6).toUpperCase();
 
 /** Who is asking: superadmin flag and wallet (created, with a cookie, on first visit). */
-async function viewer(ctx) {
-  if (ctx.viewer) return ctx.viewer;
-  const { wallet, created } = await ensureWallet(parseCookies(ctx.req.headers.cookie)[WALLET_COOKIE]);
-  if (created) ctx.cookies.push(cookie(WALLET_COOKIE, wallet.id, { maxAge: 400 * 86_400, sameSite: "Lax" }));
+async function viewer(ctx, { createWallet = false } = {}) {
+  if (ctx.viewer && (ctx.viewer.wallet || !createWallet)) return ctx.viewer;
+  const { wallet, created } = await ensureWallet(parseCookies(ctx.req.headers.cookie)[WALLET_COOKIE], { create: createWallet });
+  if (created) ctx.cookies.push(cookie(WALLET_COOKIE, wallet.id, { maxAge: 400 * 86_400, sameSite: "Lax", secure: isHttps(ctx.req) }));
   ctx.viewer = { admin: isAdmin(ctx.req), wallet, country: viewerCountry(ctx.req) };
   return ctx.viewer;
 }
+
+/** Whether this request may change settings and start runs. */
+const canManage = (req) => !publicDeployment || isAdmin(req);
 
 async function readBody(req, limit = 64 * 1024) {
   let size = 0;
@@ -138,13 +125,21 @@ async function readBody(req, limit = 64 * 1024) {
 
 // ------------------------------------------------------------------ route handlers
 
-async function status() {
+async function status(ctx) {
   return {
-    ...run,
+    ...(await getRun()),
     aiConfigured: aiConfigured(),
+    canManage: canManage(ctx.req),
+    schedule: config.serverless
+      ? { kind: "cron", note: "Daily report between 6 and 7 pm Sydney time (5 to 6 pm in winter), run by Vercel Cron." }
+      : { kind: "local", note: null },
     nextScheduled: nextScheduled?.toISOString() ?? null,
     today: sydneyDate(),
-    server: { host: config.host, port: config.port },
+    storage: storage().kind,
+    // Vercel's file system is read-only: without Firestore nothing can be saved.
+    storageWarning: config.serverless && storage().kind === "files"
+      ? "Storage is not set up, so reports, settings and wallets cannot be saved. Add FIREBASE_SERVICE_ACCOUNT in the Vercel project's environment variables and redeploy (see README)."
+      : null,
   };
 }
 
@@ -162,9 +157,10 @@ async function commerceForViewer(ctx) {
   const s = await getState();
   return {
     ...publicCommerce(s, who.wallet, who.country),
-    ...(s.settings.isTokenSystemEnabled ? { walletLabel: walletLabel(who.wallet.id) } : {}),
+    ...(who.wallet && s.settings.isTokenSystemEnabled ? { walletLabel: walletLabel(who.wallet.id) } : {}),
     admin: who.admin,
-    adminConfigured: adminConfigured(),
+    adminIdentity: who.admin ? adminIdentity(ctx.req) : null,
+    adminAuth: authMode(),
   };
 }
 
@@ -173,7 +169,7 @@ const withLabels = (view) => ({ ...view, wallets: view.wallets.map((w) => ({ ...
 // Every endpoint, declared once: method, path, request schema, access and summary. The router,
 // the idempotency layer and /api/openapi.json all read from this table.
 const ROUTES = [
-  { method: "GET", path: "/api/status", summary: "Run status and schedule", handler: async () => ok(await status()) },
+  { method: "GET", path: "/api/status", summary: "Run status and schedule", handler: async (ctx) => ok(await status(ctx)) },
   { method: "GET", path: "/api/reports", summary: "Report summaries, newest first", handler: async () => ok(await listReports()) },
   { method: "GET", path: "/api/reports/:id", summary: "One report (redacted per wallet when tokens are on)", response: REPORT, handler: async (ctx) => ok(await getReport(ctx)) },
   {
@@ -188,16 +184,16 @@ const ROUTES = [
     },
   },
   {
-    method: "POST", path: "/api/run", summary: "Start a report run", schema: RUN_REQUEST,
+    method: "POST", path: "/api/run", manage: true, summary: "Start a report run", schema: RUN_REQUEST,
     handler: async (ctx) => {
       if (ctx.body.mode === "ai" && !aiConfigured()) throw httpError(400, "AI mode needs ANTHROPIC_API_KEY in .env. See README.", "AI_NOT_CONFIGURED");
-      if (!(await startRun(ctx.body.mode, "manual"))) throw httpError(409, "A report is already running", "RUN_IN_PROGRESS");
-      return { status: 202, body: await status() };
+      if (!(await beginRun(ctx.body.mode, "manual")).started) throw httpError(409, "A report is already running", "RUN_IN_PROGRESS");
+      return { status: 202, body: await status(ctx) };
     },
   },
   { method: "GET", path: "/api/settings", summary: "App settings", handler: async () => ok(await loadSettings()) },
   {
-    method: "PUT", path: "/api/settings", summary: "Update app settings (partial)", schema: SETTINGS_PATCH,
+    method: "PUT", path: "/api/settings", manage: true, summary: "Update app settings (partial)", schema: SETTINGS_PATCH,
     handler: async (ctx) => {
       const saved = await saveSettings(ctx.body);
       await scheduleNext();
@@ -208,24 +204,18 @@ const ROUTES = [
   {
     method: "POST", path: "/api/unlock", summary: "Spend tokens to unlock one contract's details", schema: UNLOCK_REQUEST,
     handler: async (ctx) => {
-      const who = await viewer(ctx);
+      const who = await viewer(ctx, { createWallet: true });
       const { wallet, spent } = await unlockItem(who.wallet.id, ctx.body.itemId);
       return ok({ balance: wallet.balance, spent });
     },
   },
   {
-    method: "POST", path: "/api/admin/login", summary: "Superadmin sign-in", schema: LOGIN_REQUEST,
-    handler: async (ctx) => {
-      const { token, maxAge } = login(ctx.body.password, ctx.req.socket.remoteAddress ?? "unknown");
-      return ok({ ok: true }, { headers: { "set-cookie": cookie(ADMIN_COOKIE, token, { maxAge }) } });
-    },
+    method: "POST", path: "/api/admin/login", summary: "Superadmin password sign-in (only when Google sign-in is not configured)", schema: LOGIN_REQUEST,
+    handler: async (ctx) => ok({ ok: true }, { headers: { "set-cookie": login(ctx.req, ctx.body.password) } }),
   },
   {
     method: "POST", path: "/api/admin/logout", summary: "Superadmin sign-out", schema: EMPTY_REQUEST,
-    handler: async (ctx) => {
-      logout(ctx.req);
-      return ok({ ok: true }, { headers: { "set-cookie": cookie(ADMIN_COOKIE, "", { maxAge: 0 }) } });
-    },
+    handler: async (ctx) => ok({ ok: true }, { headers: { "set-cookie": logoutCookie(ctx.req) } }),
   },
   { method: "GET", path: "/api/admin/state", admin: true, summary: "Commerce settings, items, wallets and ledger", handler: async () => ok(withLabels(adminView(await getState()))) },
   { method: "PUT", path: "/api/admin/settings", admin: true, schema: COMMERCE_SETTINGS_PATCH, summary: "Token system toggles and prices", handler: async (ctx) => ok(withLabels(await updateSettings(ctx.body))) },
@@ -235,8 +225,26 @@ const ROUTES = [
   {
     method: "POST", path: "/api/admin/wallets/:id/adjust", admin: true, schema: WALLET_ADJUST_REQUEST, summary: "Add or remove tokens (id 'self' = this browser's wallet)",
     handler: async (ctx) => {
-      const walletId = ctx.params.id === "self" ? (await viewer(ctx)).wallet.id : ctx.params.id;
+      const walletId = ctx.params.id === "self" ? (await viewer(ctx, { createWallet: true })).wallet.id : ctx.params.id;
       return ok(withLabels(await adjustWallet(walletId, ctx.body.amount, ctx.body.note)));
+    },
+  },
+  {
+    method: "GET", path: "/api/cron/daily", summary: "Daily report (Vercel Cron; needs Authorization: Bearer CRON_SECRET)",
+    handler: async (ctx) => {
+      const secret = process.env.CRON_SECRET;
+      const given = Buffer.from(String(ctx.req.headers.authorization ?? ""));
+      const expected = Buffer.from(`Bearer ${secret}`);
+      if (!secret || given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) throw httpError(401, "Cron secret required.");
+      const settings = await loadSettings();
+      if (!settings.schedule.enabled) return ok({ skipped: "Daily schedule is off in Settings." });
+      // Cron may deliver twice: a report already made today, or one in progress, ends it here.
+      const [latest] = await listReports();
+      if (latest?.date === sydneyDate()) return ok({ skipped: `Today's report already exists (${latest.id}).` });
+      const { started, done } = await beginRun(settings.schedule.ai && aiConfigured() ? "ai" : "standard", "cron");
+      if (!started) return ok({ skipped: "A report is already running." });
+      const reports = await done;
+      return ok({ reports: reports?.map((r) => r.id) ?? [], status: await getRun() });
     },
   },
   { method: "GET", path: "/api/openapi.json", summary: "This API as an OpenAPI 3.1 document", handler: async () => ok(openApi()) },
@@ -255,7 +263,7 @@ function openApi() {
     paths[p] ??= {};
     paths[p][r.method.toLowerCase()] = {
       summary: r.summary,
-      ...(r.admin ? { security: [{ superadminSession: [] }] } : {}),
+      ...(r.admin || (r.manage && publicDeployment) ? { security: [{ superadminSession: [] }] } : {}),
       parameters: [
         ...[...r.path.matchAll(/:(\w+)/g)].map(([, name]) => ({ name, in: "path", required: true, schema: { type: "string" } })),
         ...(r.method !== "GET" ? [{ name: "x-idempotency-key", in: "header", required: true, schema: { type: "string", pattern: "^[A-Za-z0-9_-]{8,128}$" } }] : []),
@@ -281,6 +289,7 @@ async function handleApi(req, url) {
   const ctx = { req, url, params: { ...url.pathname.match(route.regex).groups }, cookies: [], viewer: null };
   for (const [k, v] of Object.entries(ctx.params)) ctx.params[k] = decodeURIComponent(v);
   if (route.admin && !isAdmin(req)) throw httpError(401, "Superadmin login required.");
+  if (route.manage && !canManage(req)) throw httpError(401, "Sign in as superadmin to change settings or run reports.");
 
   if (!route.mutating) return { ...(await route.handler(ctx)), cookies: ctx.cookies };
 
@@ -307,6 +316,30 @@ function send(res, { status = 200, body, headers = {}, cookies = [] }) {
     ...rest,
   });
   res.end(isText ? body : JSON.stringify(body));
+}
+
+function redirect(res, location, cookies = []) {
+  res.writeHead(302, { ...SECURITY_HEADERS, location, "cache-control": "no-store", ...(cookies.length ? { "set-cookie": cookies } : {}) });
+  res.end();
+}
+
+// Google sign-in for the superadmin: browser navigations, so they answer with redirects
+// (back to the Superadmin panel, with any problem in ?auth_error=) rather than JSON.
+async function handleAuth(req, res, url) {
+  try {
+    if (url.pathname === "/auth/google") {
+      const { location, cookies } = googleStart(req);
+      return redirect(res, location, cookies);
+    }
+    const { email, cookies } = await googleCallback(req, url);
+    telemetry("info", "admin.signed_in", { method: "google", email });
+    return redirect(res, "/#admin", cookies);
+  } catch (err) {
+    if (!(err instanceof AuthError)) console.error(err);
+    telemetry("warn", "admin.sign_in_failed", { code: err.code ?? "AUTH_FAILED", message: err.message });
+    const message = err instanceof AuthError ? err.message : "Sign-in failed. Try again.";
+    return redirect(res, `/?auth_error=${encodeURIComponent(message)}#admin`, [clearOAuthCookie(req)]);
+  }
 }
 
 /** Blocks DNS rebinding (Host) and cross-site writes (Origin / content type). */
@@ -357,6 +390,7 @@ const server = http.createServer(async (req, res) => {
     const blocked = guard(req);
     if (blocked) throw httpError(403, blocked);
     if (url.pathname.startsWith("/api/")) return send(res, await handleApi(req, url));
+    if ((url.pathname === "/auth/google" || url.pathname === "/auth/google/callback") && req.method === "GET") return await handleAuth(req, res, url);
     if (req.method !== "GET" && req.method !== "HEAD") throw httpError(405, "Method not allowed", "METHOD_NOT_ALLOWED");
     return await serveStatic(res, url.pathname);
   } catch (err) {
@@ -372,13 +406,16 @@ server.listen(config.port, config.host, async () => {
   const shown = config.host === "0.0.0.0" ? "localhost" : config.host;
   console.log(`MY ASX Options running at http://${shown}:${config.port}`);
   console.log(`AI analyst: ${aiConfigured() ? "available (ANTHROPIC_API_KEY found)" : "off (no ANTHROPIC_API_KEY)"}`);
+  console.log(`Storage: ${storage().kind}; superadmin sign-in: ${authMode() ?? "not configured"}`);
+  // On Vercel, instances start on demand; the daily report comes from Vercel Cron instead.
+  if (config.serverless) return;
   await scheduleNext();
   if (nextScheduled) console.log(`Next scheduled report: ${nextScheduled.toLocaleString("en-AU", { timeZone: "Australia/Sydney" })} (Sydney)`);
   const settings = await loadSettings();
   const [latest] = await listReports();
   if (settings.schedule.runOnStartup && latest?.date !== sydneyDate()) {
     console.log("No report for today yet; starting one now.");
-    startRun("standard", "startup");
+    beginRun("standard", "startup");
   }
 });
 

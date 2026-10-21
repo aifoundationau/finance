@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,13 +14,19 @@ if (fs.existsSync(envFile)) {
   }
 }
 
+// On Vercel the app runs as a serverless function: no long-lived process, a read-only file
+// system apart from /tmp, and scheduling through Vercel Cron instead of an in-process timer.
+const serverless = Boolean(process.env.VERCEL);
+
 export const config = {
+  serverless,
   port: Number.parseInt(process.env.PORT ?? "3000", 10) || 3000,
   host: process.env.HOST || "127.0.0.1",
   timezone: "Australia/Sydney",
   dataDir: path.join(ROOT, "data"),
   reportsDir: path.join(ROOT, "data", "reports"),
-  cacheDir: path.join(ROOT, "data", "cache"),
+  // Source caches (ASX company list, options availability) are disposable, so /tmp will do.
+  cacheDir: serverless ? path.join(os.tmpdir(), "my-asx-options-cache") : path.join(ROOT, "data", "cache"),
   publicDir: path.join(ROOT, "public"),
   userAgent: "MYASXOptions/1.0 (personal market research; Node.js)",
   // Only sent to sources that refuse non-browser clients, and only after the user opts in.
@@ -38,4 +45,12 @@ export const allowedHosts = new Set(
     .filter(Boolean),
 );
 
-export const aiConfigured =() => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
+
+/**
+ * True when people other than this computer's user can reach the app. Settings and report runs
+ * then need the superadmin, since runs cost money (AI mode) and settings are shared.
+ */
+export const publicDeployment = serverless || allowedHosts.size > 0 || !LOOPBACK.has(config.host);
+
+export const aiConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);

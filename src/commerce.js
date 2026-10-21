@@ -1,10 +1,9 @@
 // Token & multi-currency commerce (see .agents/rules/token-economy.md).
 // All token amounts and dollar prices are whole numbers: inputs that are not integers are
-// rejected, never rounded silently. State lives in data/commerce.json.
-import fs from "node:fs/promises";
-import path from "node:path";
+// rejected, never rounded silently. State is one "app/commerce" document in storage.js
+// (data/commerce.json locally, Firestore when deployed); every change runs as a transaction.
 import crypto from "node:crypto";
-import { config } from "./config.js";
+import { MemoryBackend, _useBackendForTests, storage } from "./storage.js";
 
 /** The saleable item that unlocks one contract's value/scope and sources. */
 export const DETAILS_ITEM_ID = "contract-details";
@@ -31,9 +30,6 @@ const DEFAULT_STATE = () => ({
   ledger: [],
 });
 
-const file = () => path.join(config.dataDir, "commerce.json");
-let state = null;
-let writing = Promise.resolve();
 
 export class CommerceError extends Error {
   constructor(message, status = 400) {
@@ -50,32 +46,25 @@ export function wholeNumber(value, label, { min = 0, max = MAX_PRICE } = {}) {
   return value;
 }
 
-async function load() {
-  if (state) return state;
-  try {
-    const saved = JSON.parse(await fs.readFile(file(), "utf8"));
-    const defaults = DEFAULT_STATE();
-    state = { ...defaults, ...saved, settings: { ...defaults.settings, ...saved.settings } };
-    if (!state.items.some((i) => i.id === DETAILS_ITEM_ID)) state.items.unshift(defaults.items[0]);
-  } catch {
-    state = DEFAULT_STATE();
-  }
-  return state;
+/** Saved state merged over the defaults (new settings and the system item always exist). */
+function normalize(saved) {
+  const defaults = DEFAULT_STATE();
+  if (!saved) return defaults;
+  const s = { ...defaults, ...saved, settings: { ...defaults.settings, ...saved.settings } };
+  if (!s.items.some((i) => i.id === DETAILS_ITEM_ID)) s.items.unshift(defaults.items[0]);
+  return s;
 }
 
-/** Applies `fn` to the state and persists it; writes are serialised. */
+// Read fresh on every call: with several server instances an in-memory copy would go stale.
+const load = async () => normalize(await storage().get("app", "commerce"));
+
+/** Applies `fn` to the state and saves it in one transaction; nothing is saved if `fn` throws. */
 function mutate(fn) {
-  const next = writing.then(async () => {
-    const s = await load();
+  return storage().transact("app", "commerce", async (saved) => {
+    const s = normalize(saved);
     const result = await fn(s);
-    await fs.mkdir(config.dataDir, { recursive: true });
-    const tmp = `${file()}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(s, null, 1));
-    await fs.rename(tmp, file());
-    return result;
+    return { value: s, result };
   });
-  writing = next.catch(() => {});
-  return next;
 }
 
 // ------------------------------------------------------------------ pricing
@@ -110,10 +99,15 @@ export function viewerCountry(req) {
 
 const newWalletId = () => crypto.randomBytes(16).toString("base64url");
 
-/** The viewer's wallet, created on first sight. Returns { wallet, created }. */
-export async function ensureWallet(id) {
+/**
+ * The viewer's wallet, created on first sight. Returns { wallet, created }. While the token
+ * system is off no wallet is created (wallet null), so crawlers and casual visitors leave no
+ * records behind; pass { create: true } to create one anyway.
+ */
+export async function ensureWallet(id, { create = false } = {}) {
   const s = await load();
   if (id && s.wallets[id]) return { wallet: s.wallets[id], created: false };
+  if (!create && !s.settings.isTokenSystemEnabled) return { wallet: null, created: false };
   const wallet = await mutate((st) => {
     const w = { id: newWalletId(), balance: 0, unlocks: [], createdAt: new Date().toISOString() };
     st.wallets[w.id] = w;
@@ -282,9 +276,9 @@ export function adjustWallet(id, amount, note = "") {
   });
 }
 
-/** Test hook: start from defaults (or a given state) without touching disk-loaded state. */
+/** Test hook: an in-memory store holding the given state (defaults if none). */
 export function _resetForTests(initial = DEFAULT_STATE()) {
-  state = initial;
-  writing = Promise.resolve();
+  const backend = _useBackendForTests(new MemoryBackend());
+  backend.docs.set("app/commerce", { value: structuredClone(initial), meta: null, version: 1 });
 }
 export const _defaultState = DEFAULT_STATE;
