@@ -1,7 +1,7 @@
 ﻿import { aiConfigured } from "./config.js";
 import { loadAsxDirectory } from "./sources/asxDirectory.js";
 import { fetchContractNotices } from "./sources/austender.js";
-import { CONTRACT_NOUN_RE, contractCandidates, fetchAnnouncements, isCommercialWin } from "./sources/asxAnnouncements.js";
+import { CONTRACT_NOUN_RE, contractCandidates, fetchAnnouncements } from "./sources/asxAnnouncements.js";
 import { fetchNews } from "./sources/news.js";
 import { fetchClosingTenders } from "./sources/atm.js";
 import { fetchMarketData } from "./sources/market.js";
@@ -173,37 +173,36 @@ export function announcementToItem(a, { resolver, settings, now }) {
   let govOk = false;
   if (gov && gov.level !== "local") govOk = !gov.weak || (!foreign && mentionedAsCounterparty(lead, gov.matched));
   else if (local) govOk = settings.includeLocalGovernment;
-  if (!govOk && (financing || !isCommercialWin(a.headline))) return null;
+  // Only government contracts belong in the brief.
+  if (!govOk) return null;
 
   const company = resolver.byCode.get(a.code);
   const entity = company
     ? { ...resolver.fromCompany(company, "code"), name: company.name }
     : { name: a.company, display: displayName(a.company), listing: "ASX", exchange: "ASX", code: a.code, match: "code" };
-  const kind = govOk ? (status === "forward" ? "upcoming" : "confirmed") : "other";
+  const kind = status === "forward" ? "upcoming" : "confirmed";
   const date = sydneyDate(new Date(a.date));
-  const sectorGov = govOk ? gov : null;
-  const headlineSector = sectorFor(a.headline, sectorGov);
+  const headlineSector = sectorFor(a.headline, gov);
   return {
     id: `asx-${shortHash(a.key)}`,
     kind,
     date,
     title: a.headline,
     companies: [entity],
-    agency: govOk ? gov.agency : local ? "Local council" : null,
+    agency: gov.agency,
     agencyWeak: Boolean(gov?.weak),
-    jurisdiction: govOk || local ? gov.jurisdiction : null,
+    jurisdiction: gov.jurisdiction,
     value: moneyValue(firstMoney(a.headline) ?? firstMoney((a.text ?? "").slice(0, 1500))),
     scope: extractScope(a.text) ?? a.headline,
-    sector: headlineSector !== "Other" ? headlineSector : sectorFor(lead.slice(0, 800), sectorGov),
+    sector: headlineSector !== "Other" ? headlineSector : sectorFor(lead.slice(0, 800), gov),
     status,
     stage,
     ...(kind === "upcoming"
       ? { window: forwardWindow(lead, now), context: `${STAGE_LABELS[stage]}, disclosed to the ASX${a.priceSensitive ? " (price-sensitive)" : ""}` }
       : {}),
     sources: [{ type: "asx", title: a.headline, url: a.url, publisher: `ASX announcement (${a.code})`, date }],
-    confidence: !a.text ? "medium" : govOk && !gov.weak ? "high" : "medium",
+    confidence: !a.text ? "medium" : !gov.weak ? "high" : "medium",
     flags: a.priceSensitive ? ["price-sensitive"] : [],
-    ...(kind === "other" ? { note: local ? "Local government counterparty" : "Counterparty not identified as an Australian government body" } : {}),
   };
 }
 
@@ -261,20 +260,8 @@ export function newsToItem(n, { resolver, now }) {
   const gov = detectGov(text, { infer: true });
   const date = sydneyDate(new Date(n.date));
 
-  if (!gov || gov.level === "local") {
-    // An ASX company's contract news with no government counterparty still matters to holders,
-    // when the headline itself reports a done deal.
-    const eligible = fromTitle.status === "confirmed" && CONTRACT_NOUN_RE.test(n.title);
-    const companies = eligible ? newsCompanies(n, text, resolver) : [];
-    if (!companies.some((c) => c.listing === "ASX")) return null;
-    return {
-      id: `news-${shortHash(n.link || n.title)}`, kind: "other", date, title: n.title, companies, agency: null, jurisdiction: null,
-      value: moneyValue(firstMoney(n.title, 10_000) ?? firstMoney(n.summary, 10_000)), scope: truncate(n.summary || n.title, 200),
-      sector: sectorFor(text), status, stage, confidence: "low", flags: [],
-      sources: [{ type: "news", title: n.title, url: n.link, publisher: n.publisher, date }],
-      note: "Counterparty not identified as an Australian government body",
-    };
-  }
+  // Only government contracts belong in the brief; councils are left out of news stories.
+  if (!gov || gov.level === "local") return null;
   if (!australian && gov.jurisdiction === "Unknown") return null;
   // A generic match ("Defence", "federal government") only counts in an Australian story; a
   // government inferred from a named state ("WA's ... project") is itself that context.
@@ -351,7 +338,7 @@ async function tenderItems({ now, until, track }) {
 const asxCodesOf = (items) => items.flatMap((i) => i.companies.filter((c) => c.listing === "ASX").map((c) => c.code));
 const audOf = (i) => (i.value?.currency === "AUD" ? i.value.amount : 0);
 
-export function computeStats({ confirmed, upcoming, other }) {
+export function computeStats({ confirmed, upcoming }) {
   const bySector = {};
   const byJurisdiction = {};
   const bySource = {};
@@ -362,13 +349,12 @@ export function computeStats({ confirmed, upcoming, other }) {
     const j = i.jurisdiction ?? "Unknown";
     byJurisdiction[j] = (byJurisdiction[j] ?? 0) + 1;
   }
-  for (const i of [...confirmed, ...upcoming, ...other]) {
+  for (const i of [...confirmed, ...upcoming]) {
     for (const t of new Set(i.sources.map((s) => s.type))) bySource[t] = (bySource[t] ?? 0) + 1;
   }
   return {
     confirmed: confirmed.length,
     upcoming: upcoming.length,
-    other: other.length,
     asxLinked: [...confirmed, ...upcoming].filter((i) => i.companies.some((c) => c.listing === "ASX")).length,
     asxTickers: [...new Set(asxCodesOf([...confirmed, ...upcoming]))],
     disclosedValueAud: confirmed.reduce((sum, i) => sum + audOf(i), 0),
@@ -381,7 +367,6 @@ export function computeStats({ confirmed, upcoming, other }) {
 export function sortSections(report) {
   report.confirmed.sort((a, b) => b.date.localeCompare(a.date) || audOf(b) - audOf(a));
   report.upcoming.sort((a, b) => (a.window?.to ?? "9").localeCompare(b.window?.to ?? "9") || b.date.localeCompare(a.date));
-  report.other.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export function flagWatchlist(items, watchlist) {
@@ -432,7 +417,6 @@ export async function buildStandardReport({ settings, onProgress = () => {}, now
     window: { pastFrom: sydneyDate(since), pastTo: sydneyDate(now), forwardTo: sydneyDate(until) },
     confirmed: merged.filter((i) => i.kind === "confirmed"),
     upcoming: merged.filter((i) => i.kind === "upcoming"),
-    other: merged.filter((i) => i.kind === "other"),
     takeaways: [],
     market: {},
     sources,
@@ -441,7 +425,7 @@ export async function buildStandardReport({ settings, onProgress = () => {}, now
   if (settings.sources.market) {
     track.stage("Fetching ASX prices and options availability", 88);
     try {
-      report.market = await marketFor([...report.confirmed, ...report.upcoming, ...report.other]);
+      report.market = await marketFor([...report.confirmed, ...report.upcoming]);
       sources.push({ id: "market", label: "ASX prices and options availability", status: "ok", count: Object.keys(report.market).length });
     } catch (err) {
       sources.push({ id: "market", label: "ASX prices and options availability", status: "error", count: 0, error: err.message });
@@ -451,7 +435,7 @@ export async function buildStandardReport({ settings, onProgress = () => {}, now
   }
 
   sortSections(report);
-  flagWatchlist([...report.confirmed, ...report.upcoming, ...report.other], settings.watchlist);
+  flagWatchlist([...report.confirmed, ...report.upcoming], settings.watchlist);
   report.takeaways = buildTakeaways(report);
   report.stats = computeStats(report);
   report.durationMs = Date.now() - t0;
@@ -486,7 +470,7 @@ export async function runPipeline({ mode = "standard", settings, onProgress = ()
   onProgress({ label: "Fetching prices for AI-identified tickers", pct: 97 });
   report.market = await marketFor([...report.confirmed, ...report.upcoming], standard.market).catch(() => standard.market);
   sortSections(report);
-  flagWatchlist([...report.confirmed, ...report.upcoming, ...report.other], settings.watchlist);
+  flagWatchlist([...report.confirmed, ...report.upcoming], settings.watchlist);
   report.stats = computeStats(report);
   report.durationMs = standard.durationMs + (Date.now() - t0);
   return [standard, report];

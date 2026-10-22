@@ -39,7 +39,6 @@ function leadsFrom(standard) {
   return {
     confirmed: standard.confirmed.slice(0, 40).map(pick),
     upcoming: standard.upcoming.slice(0, 25).map(pick),
-    other_asx_contract_announcements: standard.other.slice(0, 15).map(pick),
   };
 }
 

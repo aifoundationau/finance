@@ -39,11 +39,6 @@ const MONEY_RE = /\$\s?\d/;
 const HEADLINE_EXCLUDE_RE =
   /\b(?:appendix|proxy|(?:annual )?general meeting|AGM|buy-?back|director'?s? interest|substantial (?:holder|holding)|cleansing|placement|entitlement offer|share purchase plan|SPP|capital raising|notes offering|unsecured notes|convertible notes|quotation of securities|issue of (?:shares|securities|options)|trading halt|suspension|reinstatement|dividend|distribution|net tangible|top 20|results of meeting|annual report|quarterly|half[- ]year|investor presentation|webinar|letter to shareholders|chair'?s address|exclusivity|takeovers? panel|takeover|scheme implementation|scheme booklet|bidder'?s statement|target'?s statement|offer period|merger|demerger|board succession|succession|termination|terminates?|update on)\b/i;
 
-// Headlines that describe winning commercial work (used for the non-government "other" list).
-export const CONTRACT_WIN_RE =
-  /\b(?:contracts?|orders?|purchase orders?|supply agreement|offtake|panel|award(?:ed|s)?|tender|services agreement|licen[cs](?:e|ing) agreement|master services|framework agreement|binding agreement|engagement)\b/i;
-const NOT_A_WIN_RE = /\b(?:joint venture|JV|land (?:sale|access)|sale (?:&|and) purchase|partnership|collaboration|funding|facility|loan)\b/i;
-export const isCommercialWin = (headline) => CONTRACT_WIN_RE.test(headline) && !NOT_A_WIN_RE.test(headline);
 const ROUTINE_TYPE_RE =
   /^(?:Proxy Form|Notice of (?:Annual General )?Meeting|Daily Share Buy-Back Notice|(?:Change of|Initial|Final) Director's Interest Notice|Appendix|(?:Change in|Becoming a|Ceasing to be a) substantial hold|Cleansing Notice|Results of Meeting|Top 20 shareholders|Dividend|Net Tangible Asset Backing|Annual Report|Full Year|Half Year|(?:First|Second|Third|Fourth) Quarter|Letter to Shareholders|Chair's Address|Web Cast|Issued Capital|Corporate Governance|Commitments Test Entity|Director Appointment)/i;
 

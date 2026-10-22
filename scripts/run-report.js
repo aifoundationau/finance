@@ -22,7 +22,7 @@ try {
   });
   for (const r of reports) {
     await saveReport(r);
-    console.log(`Saved ${r.id}: ${r.confirmed.length} confirmed, ${r.upcoming.length} upcoming, ${r.other.length} other ASX (${(r.durationMs / 1000).toFixed(1)}s)`);
+    console.log(`Saved ${r.id}: ${r.confirmed.length} confirmed, ${r.upcoming.length} upcoming (${(r.durationMs / 1000).toFixed(1)}s)`);
     for (const s of r.sources.filter((x) => x.status === "error" || x.status === "partial")) {
       console.log(`  ! ${s.label}: ${s.status}${s.error ? ` (${s.error})` : ""}`);
     }

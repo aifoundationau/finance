@@ -542,7 +542,7 @@ select {
   inset: auto 0 0 0;
   z-index: 40;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   min-height: calc(var(--bottomnav-h) + env(safe-area-inset-bottom));
   padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -589,7 +589,6 @@ select {
 .main[data-view="overview"] > #overview,
 .main[data-view="confirmed"] > #confirmed,
 .main[data-view="upcoming"] > #upcoming,
-.main[data-view="other"] > #other,
 .main[data-view="takeaways"] > #takeaways-view,
 .main[data-view="settings"] > #settings {
   display: block;
@@ -1624,6 +1623,23 @@ select {
 .chg.flat {
   color: var(--muted);
 }
+/* ASX codes stand out from unlisted names and open the price history. */
+button.ticker-btn {
+  min-height: 1.75rem;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+button.ticker-btn .ticker-code {
+  color: var(--link);
+}
+button.ticker-btn:hover {
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 0 1px var(--accent-hover);
+}
 .opt-badge {
   padding: 0 0.3rem;
   border-radius: 0.25rem;
@@ -1791,6 +1807,204 @@ select {
   align-content: start;
   gap: 1.1rem;
   padding: 1rem max(1.1rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.1rem, env(safe-area-inset-left));
+}
+/* Popups fit the screen: lists are paged in script, so no scrollbar is ever drawn. The body can
+   still scroll as a last resort (e.g. very large text), just without a visible bar. */
+.dialog-body {
+  scrollbar-width: none;
+}
+.dialog-body::-webkit-scrollbar {
+  display: none;
+}
+.dialog-heading h2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.detail-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--line);
+}
+.detail-tabs button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.detail-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+}
+.detail-panel:not(.is-active) {
+  display: none;
+}
+.detail-stack {
+  display: grid;
+  gap: 1.1rem;
+}
+.company-list {
+  display: grid;
+  gap: 0.6rem;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.pager-status {
+  font-variant-numeric: tabular-nums;
+}
+.pager-btn {
+  min-width: var(--tap);
+  min-height: 2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* Short screens (small phones, landscape): tighter spacing and shorter text so popups still fit. */
+@media (max-height: 640px) {
+  .dialog-head {
+    padding-top: max(0.6rem, env(safe-area-inset-top));
+    padding-bottom: 0.5rem;
+  }
+  .dialog-heading h2 {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  .dialog-body {
+    gap: 0.6rem;
+    padding-top: 0.6rem;
+  }
+  .detail-section h3 {
+    margin-bottom: 0.3rem;
+  }
+  .facts {
+    gap: 0.35rem 0.75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .clamp-4 {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  .detail-tabs button {
+    min-height: 2.25rem;
+  }
+}
+/* Phones in landscape: one-line titles, and the price chart sits beside its numbers. */
+@media (max-height: 480px) {
+  .dialog-heading h2 {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+  .dialog-body {
+    gap: 0.5rem;
+  }
+}
+@media (max-height: 480px) and (min-width: 560px) {
+  dialog.dialog {
+    max-height: calc(100dvh - 1rem);
+  }
+  .facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .facts .fact-wide {
+    grid-column: span 2;
+  }
+  .paged {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.75rem;
+  }
+  .pager {
+    margin-top: 0;
+  }
+  #price-dialog.dialog {
+    width: min(46rem, calc(100% - 2rem));
+  }
+  #price-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    column-gap: 1.25rem;
+  }
+  #price-body > * {
+    grid-column: 1;
+  }
+  #price-body > .price-chart {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin: 0;
+  }
+  .price-last {
+    margin-bottom: 0;
+  }
+  .price-last strong {
+    font-size: var(--fs-xl);
+  }
+  #price-body .price-periods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 0;
+  }
+  #price-body .facts.price-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* With room, the details popup shows every tab side by side. */
+@media (min-width: 1100px) and (min-height: 560px) {
+  #detail.dialog {
+    width: min(76rem, calc(100% - 2rem));
+  }
+  .detail-tabs {
+    display: none;
+  }
+  .detail-panels {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 1.5rem;
+  }
+  .detail-panel:not(.is-active) {
+    display: block;
+  }
+  .detail-panel + .detail-panel {
+    padding-left: 1.5rem;
+    border-left: 1px solid var(--line);
+  }
 }
 .detail-section h3 {
   margin-bottom: 0.5rem;
@@ -2078,6 +2292,140 @@ select {
 }
 .dialog-small .dialog-inner {
   max-width: 100%;
+}
+
+/* Price history popup */
+.price-last {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+  margin: 0 0 0.75rem;
+}
+.price-last strong {
+  font-size: var(--fs-kpi);
+  font-variant-numeric: tabular-nums;
+}
+/* Period picker: four across, two by two on very narrow phones. */
+.price-periods {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+@media (max-width: 359px) {
+  .price-periods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.price-periods button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.price-periods button:hover {
+  border-color: var(--accent);
+}
+.price-periods button[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.price-periods .period-label {
+  font-weight: 700;
+}
+.price-periods .chg {
+  font-size: var(--fs-xs);
+}
+.price-readout {
+  margin: 0 0 0.35rem;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.price-plot {
+  position: relative;
+  height: 9rem;
+  padding-left: 0;
+  border-radius: var(--radius-sm);
+  touch-action: pan-y;
+}
+.price-line {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.price-path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.price-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.price-axis {
+  position: absolute;
+  right: 0;
+  padding: 0 0.25rem;
+  border-radius: 0.25rem;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+.price-axis-max {
+  top: 0;
+  transform: translateY(-50%);
+}
+.price-axis-min {
+  bottom: 0;
+  transform: translateY(50%);
+}
+.price-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-strong);
+  pointer-events: none;
+}
+.price-dot {
+  position: absolute;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.price-chart {
+  margin-bottom: 1rem;
+}
+.facts.price-facts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 479px) {
+  .facts.price-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (min-width: 640px) {
   .dialog.dialog-small {

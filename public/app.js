@@ -14,7 +14,7 @@ import {
 // Tells boot-check.js the module graph loaded (an import that fails stops this file running).
 window.__maoStarted = true;
 
-const VIEWS = ["overview", "confirmed", "upcoming", "other", "takeaways", "settings", "admin"];
+const VIEWS = ["overview", "confirmed", "upcoming", "takeaways", "settings", "admin"];
 const DETAILS_ITEM_ID = "contract-details"; // the saleable item that unlocks value/scope and sources
 const BRIEF_VIEWS = new Set(["overview", "confirmed", "upcoming"]);
 const STAGE_LABELS = {
@@ -48,6 +48,9 @@ const state = {
   view: "overview",
   filters: { q: "", scope: "all", sector: "", jur: "", source: "" },
   sort: "date",
+  history: {},
+  priceCode: null,
+  pricePeriod: "1m",
   pollTimer: null,
   wasRunning: false,
 };
@@ -260,6 +263,8 @@ function matches(item) {
 }
 
 const filtered = (list) => (list ?? []).filter(matches);
+/** Rows naming an ASX code always lead; the sort is stable, so each group keeps its order. */
+const codesFirst = (items) => items.sort((a, b) => Number(asxCompanies(b).length > 0) - Number(asxCompanies(a).length > 0));
 const activeFilterCount = () => ["sector", "jur", "source"].filter((k) => state.filters[k]).length + (state.filters.scope !== "all" ? 1 : 0);
 
 // ------------------------------------------------------------------ navigation
@@ -324,7 +329,7 @@ function renderNotices() {
       items.push(notice("warn", "i-alert", `${plural(failing.length, "source")} failed in this run: ${failing.map((s) => `${s.label} (${s.error})`).join("; ")}. Results may be incomplete.`));
     }
     const w = watchlist();
-    const hits = [...new Set([...r.confirmed, ...r.upcoming, ...r.other].flatMap((i) => asxCompanies(i).map((c) => c.code)).filter((code) => w.has(code)))];
+    const hits = [...new Set([...r.confirmed, ...r.upcoming].flatMap((i) => asxCompanies(i).map((c) => c.code)).filter((code) => w.has(code)))];
     if (hits.length) items.push(notice("info", "i-star", `Watchlist in this report: ${hits.join(", ")}`));
   }
   box.replaceChildren(...items);
@@ -396,23 +401,25 @@ function renderSectorBars() {
 
 // ------------------------------------------------------------------ rendering: tables
 
-function changeEl(pct) {
+function changeEl(pct, span = "latest session", title = "Latest session move (delayed)") {
   const dir = pct > 0.05 ? "up" : pct < -0.05 ? "down" : "flat";
   const words = dir === "up" ? "up" : dir === "down" ? "down" : "unchanged";
   return h(
     "span",
-    { class: `chg ${dir}`, title: "Latest session move (delayed)", "aria-label": `${words} ${Math.abs(pct).toFixed(1)} percent, latest session` },
+    { class: `chg ${dir}`, title, "aria-label": `${words} ${Math.abs(pct).toFixed(1)} percent, ${span}` },
     dir === "flat" ? null : icon(dir === "up" ? "i-up" : "i-down"),
     `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`,
   );
 }
 
-function tickerChip(c) {
+/** ASX chips are buttons that open the price history; `where` keeps their agent ids unique. */
+function tickerChip(c, where) {
   const m = c.listing === "ASX" ? marketOf(c.code) : null;
-  const title = c.note ?? (c.listing === "Unverified" ? "Not matched to a listed company" : c.listing === "ASX" && m?.price ? `Last ${fmtPrice(m.price)}` : null);
+  const title = c.note ?? (c.listing === "Unverified" ? "Not matched to a listed company" : c.listing === "ASX" ? `Price history${m?.price ? ` · last ${fmtPrice(m.price)}` : ""}` : null);
+  const asx = c.listing === "ASX";
   return h(
-    "span",
-    { class: "ticker", "data-listing": c.listing, title },
+    asx ? "button" : "span",
+    { class: `ticker${asx ? " ticker-btn" : ""}`, "data-listing": c.listing, title, ...(asx ? { type: "button", "data-price": c.code, "aria-haspopup": "dialog", ...agent(`btn_price_${where}_${c.code}`) } : {}) },
     h("span", { class: "ticker-code" }, tickerLabel(c, true)),
     m && Number.isFinite(m.changePct) ? changeEl(m.changePct) : null,
     m?.options?.available ? h("span", { class: "opt-badge", title: "Exchange-traded options are listed on this stock" }, "Options") : null,
@@ -432,7 +439,7 @@ function uniqueCompanies(item) {
 
 function tickersCell(item) {
   if (!item.companies.length) return h("span", { class: "muted" }, "—");
-  return h("div", { class: "tickers" }, uniqueCompanies(item).map(tickerChip));
+  return h("div", { class: "tickers" }, uniqueCompanies(item).map((c) => tickerChip(c, item.id)));
 }
 
 function companyCell(item, emptyLabel = "Not named") {
@@ -507,6 +514,7 @@ function renderConfirmed() {
   const all = state.report?.confirmed ?? [];
   const items = filtered(all);
   if (state.sort === "value") items.sort((a, b) => audValue(b) - audValue(a));
+  codesFirst(items);
   const rows = items.map((item) =>
     rowFor(item, [
       td("c-lead date-cell", null, h("time", { datetime: item.date }, fmtDate(item.date)), h("span", { class: "stage" }, STAGE_LABELS[item.stage] ?? "")),
@@ -526,7 +534,7 @@ function renderConfirmed() {
 
 function renderUpcoming() {
   const all = state.report?.upcoming ?? [];
-  const items = filtered(all);
+  const items = codesFirst(filtered(all));
   const rows = items.map((item) =>
     rowFor(item, [
       td("c-lead date-cell", null, h("span", { class: "cell-main" }, item.window?.label ?? "Next 7 days"), h("span", { class: "stage" }, STAGE_LABELS[item.stage] ?? "")),
@@ -544,29 +552,9 @@ function renderUpcoming() {
   );
 }
 
-function renderOther() {
-  const all = state.report?.other ?? [];
-  const items = filtered(all);
-  const rows = items.map((item) =>
-    rowFor(item, [
-      td("c-lead date-cell", null, h("time", { datetime: item.date }, fmtDate(item.date)), h("span", { class: "stage" }, STAGE_LABELS[item.stage] ?? "")),
-      td("c-lead", null, companyCell(item)),
-      td("c-ticker", null, tickersCell(item)),
-      td("", "Announcement", item.locked ? null : h("span", { class: "cell-main" }, item.title), item.note ? h("span", { class: "cell-sub" }, item.note) : null),
-      td("", "Value", item.locked ? lockedValue(item) : item.value ? h("strong", {}, item.value.text) : h("span", { class: "muted" }, "—")),
-      td("c-source", null, item.locked ? lockedSource() : sourceCell(item)),
-    ]),
-  );
-  $("#other-table").replaceChildren(
-    h("caption", { class: "visually-hidden" }, "Other ASX contract news"),
-    headerRow([["col-date", "Date"], ["col-company", "Company"], ["col-ticker", "Ticker"], ["", "Announcement"], ["col-agency", "Value"], ["col-source", "Source"]]),
-    h("tbody", { role: "rowgroup" }, rows.length ? rows : emptyRow(emptyMessage(all, "other contract announcements"))),
-  );
-}
-
 function renderCounts() {
   const r = state.report;
-  for (const key of ["confirmed", "upcoming", "other"]) {
+  for (const key of ["confirmed", "upcoming"]) {
     const el = $(`.nav-count[data-count="${key}"]`);
     if (el) el.textContent = r ? String(filtered(r[key]).length) : "";
   }
@@ -609,7 +597,6 @@ function render() {
   renderSectorBars();
   renderConfirmed();
   renderUpcoming();
-  renderOther();
   renderCounts();
   renderSourcesTable();
   const n = activeFilterCount();
@@ -620,10 +607,10 @@ function render() {
 
 // ------------------------------------------------------------------ detail dialog
 
-const allItems = () => (state.report ? [...state.report.confirmed, ...state.report.upcoming, ...state.report.other] : []);
+const allItems = () => (state.report ? [...state.report.confirmed, ...state.report.upcoming] : []);
 
-function fact(label, value) {
-  return value ? h("div", {}, h("dt", {}, label), h("dd", {}, value)) : null;
+function fact(label, value, cls) {
+  return value ? h("div", { class: cls }, h("dt", {}, label), h("dd", {}, value)) : null;
 }
 
 function companyDetail(c) {
@@ -646,7 +633,7 @@ function companyDetail(c) {
   return h(
     "div",
     { class: "company-card" },
-    h("div", { class: "company-card-head" }, h("strong", {}, c.display), tickerChip(c)),
+    h("div", { class: "company-card-head" }, h("strong", {}, c.display), tickerChip(c, "detail")),
     m
       ? h(
           "dl",
@@ -667,7 +654,7 @@ function companyDetail(c) {
   );
 }
 
-function sourcesSection(item) {
+function sourcesSection(item, pagers) {
   if (item.locked) {
     return h(
       "section",
@@ -677,76 +664,180 @@ function sourcesSection(item) {
       detailsProduct() ? lockedValue(item, "detail") : null,
     );
   }
+  const items = item.sources.map((s, i) => h("li", {}, sourceLink(item, s, i, "detail"), h("span", { class: "cell-sub" }, [s.publisher, s.date ? fmtDate(s.date) : null].filter(Boolean).join(" · "))));
   return h(
     "section",
     { class: "detail-section" },
     h("h3", {}, item.sources.length === 1 ? "Source" : `Sources (${item.sources.length})`),
-    item.sources.length
-      ? h(
-          "ul",
-          { class: "source-list" },
-          item.sources.map((s, i) => h("li", {}, sourceLink(item, s, i, "detail"),h("span", { class: "cell-sub" }, [s.publisher, s.date ? fmtDate(s.date) : null].filter(Boolean).join(" · ")))),
-        )
-      : h("p", { class: "muted" }, "No source link."),
+    items.length ? addPager(pagers, items, { tag: "ul", cls: "source-list", label: "sources", id: "detail_sources" }) : h("p", { class: "muted" }, "No source link."),
   );
+}
+
+// Popups never scroll: long lists are paged, and fitDialog() sizes each page to the screen.
+
+/** A list shown a page at a time with ‹ › buttons; returns its element and records it in `pagers`. */
+function addPager(pagers, items, { tag, cls, label, id }) {
+  const list = h(tag, { class: cls });
+  const status = h("span", { class: "pager-status" });
+  const prev = h("button", { class: "pager-btn", type: "button", "aria-label": `Previous ${label}`, ...agent(`btn_${id}_prev`) }, "‹");
+  const next = h("button", { class: "pager-btn", type: "button", "aria-label": `Next ${label}`, ...agent(`btn_${id}_next`) }, "›");
+  const nav = h("div", { class: "pager", role: "group", "aria-label": `More ${label}` }, prev, status, next);
+  const el = h("div", { class: "paged" }, list, nav);
+  const p = { items, size: items.length, page: 0, el };
+  p.render = () => {
+    const pages = Math.ceil(items.length / p.size);
+    p.page = Math.max(0, Math.min(p.page, pages - 1));
+    const start = p.page * p.size;
+    list.replaceChildren(...items.slice(start, start + p.size));
+    nav.hidden = pages <= 1;
+    prev.disabled = p.page === 0;
+    next.disabled = p.page >= pages - 1;
+    status.textContent = p.size === 1 ? `${start + 1} of ${items.length}` : `${start + 1}–${Math.min(start + p.size, items.length)} of ${items.length}`;
+  };
+  prev.addEventListener("click", () => {
+    p.page -= 1;
+    p.render();
+  });
+  next.addEventListener("click", () => {
+    p.page += 1;
+    p.render();
+  });
+  p.render();
+  pagers.push(p);
+  return el;
+}
+
+/** Shrinks the visible pagers, longest first, until `body` shows everything without scrolling. */
+function fitDialog(body, pagers) {
+  for (const p of pagers) {
+    p.size = p.items.length;
+    p.render();
+  }
+  const limit = () => body.getBoundingClientRect().top + body.clientHeight - parseFloat(getComputedStyle(body).paddingBottom);
+  for (let guard = 0; guard < 200 && body.scrollHeight > body.clientHeight + 1; guard++) {
+    const over = pagers.filter((p) => p.el.offsetParent && p.size > 1 && p.el.closest(".detail-panel").getBoundingClientRect().bottom > limit() + 1);
+    const p = over.sort((x, y) => y.size - x.size)[0];
+    if (!p) break;
+    p.size -= 1;
+    p.render();
+  }
+  // Shrinking one list can leave room for another: give items back while everything still fits.
+  for (const p of pagers.filter((x) => x.el.offsetParent)) {
+    while (p.size < p.items.length) {
+      p.size += 1;
+      p.render();
+      if (body.scrollHeight > body.clientHeight + 1) {
+        p.size -= 1;
+        p.render();
+        break;
+      }
+    }
+  }
+}
+
+const detailFit = { pagers: [] };
+
+function selectDetailTab(id, { focus = false } = {}) {
+  for (const tab of $$("#detail-body [role=tab]")) {
+    const on = tab.dataset.detailTab === id;
+    tab.setAttribute("aria-selected", String(on));
+    tab.tabIndex = on ? 0 : -1;
+    if (on && focus) tab.focus();
+  }
+  for (const panel of $$("#detail-body .detail-panel")) panel.classList.toggle("is-active", panel.dataset.panel === id);
+  fitDialog($("#detail-body"), detailFit.pagers);
 }
 
 function openDetail(id) {
   const item = allItems().find((i) => i.id === id);
   if (!item) return;
-  const kindLabel = item.kind === "confirmed" ? "Confirmed contract" : item.kind === "upcoming" ? "Upcoming / speculation" : "Other ASX contract news";
+  const kindLabel = item.kind === "confirmed" ? "Confirmed contract" : "Upcoming / speculation";
+  const title = item.title ?? itemLabel(item);
   $("#detail-eyebrow").textContent = `${kindLabel} · ${STAGE_LABELS[item.stage] ?? ""}`;
-  $("#detail-title").textContent = item.title ?? itemLabel(item);
+  $("#detail-title").textContent = title;
+  $("#detail-title").title = title;
   const notices = item.details?.notices ?? [];
-  const sections = [
+  const companies = uniqueCompanies(item);
+  const pagers = [];
+  const longText = (text) => h("p", { class: "clamp-4", title: text }, text);
+  const overview = h(
+    "section",
+    { class: "detail-section" },
+    h("h3", {}, "Overview"),
     h(
-      "section",
-      { class: "detail-section" },
-      h("h3", {}, "Overview"),
-      h(
-        "dl",
-        { class: "facts" },
-        fact(item.kind === "upcoming" ? "Window" : "Date", item.kind === "upcoming" ? item.window?.label : fmtDateLong(item.date)),
-        fact(item.kind === "upcoming" ? "Procuring body" : "Agency", item.agency),
-        fact("Government", item.jurisdiction),
-        fact("Value", item.value?.text),
-        fact("Sector", item.sector),
-        fact("Confidence", item.confidence ? `${item.confidence[0].toUpperCase()}${item.confidence.slice(1)}` : null),
-      ),
-      item.scope && item.scope !== item.title ? h("p", {}, item.scope) : null,
-      item.context ? h("p", {}, item.context) : null,
-      item.note ? h("p", { class: "cell-sub" }, item.note) : null,
+      "dl",
+      { class: "facts" },
+      fact(item.kind === "upcoming" ? "Window" : "Date", item.kind === "upcoming" ? item.window?.label : fmtDateLong(item.date)),
+      fact(item.kind === "upcoming" ? "Procuring body" : "Agency", item.agency, "fact-wide"),
+      fact("Government", item.jurisdiction),
+      fact("Value", item.value?.text),
+      fact("Sector", item.sector),
+      fact("Confidence", item.confidence ? `${item.confidence[0].toUpperCase()}${item.confidence.slice(1)}` : null),
     ),
-    item.companies.length ? h("section", { class: "detail-section" }, h("h3", {}, item.companies.length === 1 ? "Company" : "Companies"), uniqueCompanies(item).map(companyDetail)) : null,
-    notices.length
-      ? h(
-          "section",
-          { class: "detail-section" },
-          h("h3", {}, "AusTender contract notices"),
-          h(
-            "ul",
-            { class: "source-list" },
-            notices.map((n) =>
-              h(
-                "li",
-                {},
-                safeUrl(n.url) ? h("a", { href: n.url, target: "_blank", rel: "noopener noreferrer", ...agent(`link_notice_${n.cnId}`) }, `${n.cnId}: ${n.description || n.category} `, icon("i-external")) : `${n.cnId}: ${n.description}`,
-                h(
-                  "span",
-                  { class: "cell-sub" },
-                  [fmtMoney(n.value ?? NaN), n.amendment ? "amendment" : null, n.start && n.end ? `${fmtDate(n.start)} – ${fmtDate(n.end)} ${n.end.slice(0, 4)}` : null, n.method, n.supplier].filter(Boolean).join(" · "),
-                ),
-              ),
-            ),
-          ),
-        )
+    item.scope && item.scope !== item.title ? longText(item.scope) : null,
+    item.context ? longText(item.context) : null,
+    item.note ? h("p", { class: "cell-sub" }, item.note) : null,
+  );
+  const company = companies.length
+    ? h(
+        "section",
+        { class: "detail-section" },
+        h("h3", {}, companies.length === 1 ? "Company" : `Companies (${companies.length})`),
+        addPager(pagers, companies.map((c) => companyDetail(c)), { tag: "div", cls: "company-list", label: "companies", id: "detail_companies" }),
+      )
+    : null;
+  const noticeItems = notices.map((n) =>
+    h(
+      "li",
+      {},
+      safeUrl(n.url) ? h("a", { href: n.url, target: "_blank", rel: "noopener noreferrer", ...agent(`link_notice_${n.cnId}`) }, `${n.cnId}: ${n.description || n.category} `, icon("i-external")) : `${n.cnId}: ${n.description}`,
+      h(
+        "span",
+        { class: "cell-sub" },
+        [fmtMoney(n.value ?? NaN), n.amendment ? "amendment" : null, n.start && n.end ? `${fmtDate(n.start)} – ${fmtDate(n.end)} ${n.end.slice(0, 4)}` : null, n.method, n.supplier].filter(Boolean).join(" · "),
+      ),
+    ),
+  );
+  const sources = h(
+    "div",
+    { class: "detail-stack" },
+    noticeItems.length
+      ? h("section", { class: "detail-section" }, h("h3", {}, "AusTender contract notices"), addPager(pagers, noticeItems, { tag: "ul", cls: "source-list", label: "notices", id: "detail_notices" }))
       : null,
-    sourcesSection(item),
-  ];
-  // replaceChildren() would print a null as text, so drop absent sections first.
-  $("#detail-body").replaceChildren(...sections.filter(Boolean));
+    sourcesSection(item, pagers),
+  );
+  const panels = [
+    { id: "overview", label: "Overview", el: overview },
+    company ? { id: "company", label: companies.length === 1 ? "Company" : "Companies", el: company } : null,
+    { id: "sources", label: item.locked ? "Sources" : `Sources (${item.sources.length + notices.length})`, el: sources },
+  ].filter(Boolean);
+  const tabs = h(
+    "div",
+    {
+      class: "detail-tabs",
+      role: "tablist",
+      "aria-label": "Contract details",
+      onkeydown: (event) => {
+        const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        const at = panels.findIndex((p) => p.id === event.target.dataset.detailTab);
+        selectDetailTab(panels[(at + step + panels.length) % panels.length].id, { focus: true });
+      },
+    },
+    panels.map((p) =>
+      h("button", { type: "button", role: "tab", id: `tab-detail-${p.id}`, "aria-controls": `panel-detail-${p.id}`, "data-detail-tab": p.id, onclick: () => selectDetailTab(p.id), ...agent(`tab_detail_${p.id}`) }, p.label),
+    ),
+  );
+  const content = h(
+    "div",
+    { class: "detail-panels" },
+    panels.map((p) => h("div", { class: "detail-panel", id: `panel-detail-${p.id}`, role: "tabpanel", "aria-labelledby": `tab-detail-${p.id}`, "data-panel": p.id }, p.el)),
+  );
+  detailFit.pagers = pagers;
+  $("#detail-body").replaceChildren(tabs, content);
   $("#detail").showModal();
-  $("#detail .dialog-body").scrollTop = 0;
+  selectDetailTab("overview");
 }
 
 // ------------------------------------------------------------------ settings (schema-driven)
@@ -1255,7 +1346,7 @@ async function loadReport(id) {
 
 function populateFilterOptions() {
   const r = state.report;
-  const items = r ? [...r.confirmed, ...r.upcoming, ...r.other] : [];
+  const items = r ? [...r.confirmed, ...r.upcoming] : [];
   const fill = (select, values, allLabel) => {
     const current = select.value;
     select.replaceChildren(h("option", { value: "" }, allLabel), ...values.map((v) => h("option", { value: v }, v)));
@@ -1320,6 +1411,202 @@ async function copyMarkdown() {
   }
 }
 
+// ------------------------------------------------------------------ price history popup
+
+const PERIODS = [
+  { id: "7d", short: "7D", label: "7 days", back: (d) => d.setUTCDate(d.getUTCDate() - 7) },
+  { id: "1m", short: "1M", label: "1 month", back: (d) => d.setUTCMonth(d.getUTCMonth() - 1) },
+  { id: "6m", short: "6M", label: "6 months", back: (d) => d.setUTCMonth(d.getUTCMonth() - 6) },
+  { id: "1y", short: "1Y", label: "1 year", back: (d) => d.setUTCFullYear(d.getUTCFullYear() - 1) },
+];
+
+/** Closes for one period: from the last close on or before its start date to the latest. */
+function periodPoints(points, period) {
+  const start = utcDate(points.at(-1).date);
+  period.back(start);
+  const iso = start.toISOString().slice(0, 10);
+  let from = 0;
+  points.forEach((p, i) => {
+    if (p.date <= iso) from = i;
+  });
+  return points.slice(from);
+}
+
+const pctOf = (pts) => (pts.at(-1).close / pts[0].close - 1) * 100;
+
+/**
+ * Money in the viewer's currency and number style (the server picked the currency by location).
+ * Penny stocks get a third decimal; pass the share price as `scale` when formatting a change.
+ */
+function fmtLocal(amount, currency, scale = amount) {
+  if (!Number.isFinite(amount)) return "—";
+  const small = Math.abs(scale) < 1 && scale !== 0 ? { minimumFractionDigits: 3, maximumFractionDigits: 3 } : {};
+  return new Intl.NumberFormat(undefined, { style: "currency", currency, ...small }).format(amount);
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+}
+
+/** Line of daily closes with a crosshair readout on hover, touch and arrow keys. */
+function priceChart(points, currency, period) {
+  const W = 320;
+  const H = 120;
+  const PAD = 6;
+  const closes = points.map((p) => p.close);
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const x = (i) => (points.length === 1 ? W / 2 : (i / (points.length - 1)) * W);
+  const y = (v) => PAD + (1 - (v - min) / (max - min || 1)) * (H - 2 * PAD);
+  const line = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(2)} ${y(p.close).toFixed(2)}`).join(" ");
+  const svg = svgEl("svg", { class: "price-line", viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", "aria-hidden": "true" });
+  for (const v of [max, min]) svg.append(svgEl("line", { class: "price-grid", x1: 0, x2: W, y1: y(v), y2: y(v), "vector-effect": "non-scaling-stroke" }));
+  svg.append(svgEl("path", { class: "price-path", d: line, "vector-effect": "non-scaling-stroke" }));
+
+  const latest = `${fmtDateLong(points.at(-1).date)} · ${fmtLocal(points.at(-1).close, currency)}`;
+  const readout = h("p", { class: "price-readout" }, latest);
+  const cursor = h("span", { class: "price-cursor", hidden: true });
+  const dot = h("span", { class: "price-dot", hidden: true });
+  const plot = h(
+    "div",
+    {
+      class: "price-plot",
+      role: "group",
+      tabindex: "0",
+      "aria-label": `${period.label} of daily closes, ${fmtLocal(points[0].close, currency)} to ${fmtLocal(points.at(-1).close, currency)}. Use the arrow keys to read each day.`,
+      ...agent("chart_price"),
+    },
+    svg,
+    h("span", { class: "price-axis price-axis-max" }, fmtLocal(max, currency)),
+    h("span", { class: "price-axis price-axis-min" }, fmtLocal(min, currency)),
+    cursor,
+    dot,
+  );
+  let at = points.length - 1;
+  const pick = (i) => {
+    at = Math.max(0, Math.min(points.length - 1, i));
+    cursor.style.left = dot.style.left = `${(x(at) / W) * 100}%`;
+    dot.style.top = `${(y(points[at].close) / H) * 100}%`;
+    cursor.hidden = dot.hidden = false;
+    readout.textContent = `${fmtDateLong(points[at].date)} · ${fmtLocal(points[at].close, currency)}`;
+  };
+  const reset = () => {
+    cursor.hidden = dot.hidden = true;
+    readout.textContent = latest;
+  };
+  plot.addEventListener("pointermove", (event) => {
+    const r = plot.getBoundingClientRect();
+    pick(Math.round(((event.clientX - r.left) / r.width) * (points.length - 1)));
+  });
+  plot.addEventListener("pointerleave", reset);
+  plot.addEventListener("blur", reset);
+  plot.addEventListener("keydown", (event) => {
+    const step = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity }[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    pick(cursor.hidden ? points.length - 1 : Number.isFinite(step) ? at + step : step < 0 ? 0 : points.length - 1);
+  });
+  return h("div", { class: "price-chart" }, readout, plot);
+}
+
+/** The chart's data as a table, for screen readers (the popup itself never scrolls). */
+function priceTable(points, currency, period) {
+  return h(
+    "div",
+    { class: "visually-hidden" },
+    h(
+      "table",
+      {},
+      h("caption", {}, `Daily closes, ${period.label}`),
+      h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Date"), h("th", { scope: "col" }, "Close"))),
+      h("tbody", {}, [...points].reverse().map((p) => h("tr", {}, h("td", {}, fmtDate(p.date)), h("td", {}, fmtLocal(p.close, currency))))),
+    ),
+  );
+}
+
+function renderPrice() {
+  const code = state.priceCode;
+  const data = state.history[code];
+  const body = $("#price-body");
+  $("#price-title").textContent = `ASX: ${code}`;
+  $("#price-eyebrow").textContent = data?.name ?? marketOf(code)?.name ?? "Price history";
+  body.setAttribute("aria-busy", String(!data));
+  if (!data) return body.replaceChildren(h("p", { class: "muted", role: "status" }, "Loading price history…"));
+  if (data.error) {
+    return body.replaceChildren(
+      h("p", { class: "notice notice-error", role: "alert" }, data.error),
+      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", "data-price": code, ...agent("btn_price_retry") }, "Try again")),
+    );
+  }
+  const period = PERIODS.find((p) => p.id === state.pricePeriod) ?? PERIODS[1];
+  const pts = periodPoints(data.points, period);
+  const closes = pts.map((p) => p.close);
+  const last = data.points.at(-1);
+  const choose = (id) => {
+    state.pricePeriod = id;
+    renderPrice();
+    $(`#price-body [data-price-period="${id}"]`)?.focus();
+  };
+  const seg = h(
+    "div",
+    {
+      class: "price-periods",
+      role: "radiogroup",
+      "aria-label": "Period",
+      onkeydown: (event) => {
+        const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        choose(PERIODS[(PERIODS.indexOf(period) + step + PERIODS.length) % PERIODS.length].id);
+      },
+    },
+    PERIODS.map((p) => {
+      const pct = pctOf(periodPoints(data.points, p));
+      return h(
+        "button",
+        { type: "button", role: "radio", "aria-checked": String(p === period), tabindex: p === period ? "0" : "-1", "data-price-period": p.id, onclick: () => choose(p.id), ...agent(`radio_price_${p.id}`) },
+        h("span", { class: "period-label" }, p.short),
+        changeEl(pct, `over ${p.label}`, `Change over ${p.label}`),
+      );
+    }),
+  );
+  const fxNote = data.fx
+    ? `Prices in ${data.currency} for your location, converted from AUD at 1 AUD = ${data.fx.rate} ${data.currency} (ECB rate, ${fmtDate(data.fx.date)}).`
+    : `Prices in AUD.${data.fxError ? ` ${data.fxError}` : ""}`;
+  body.replaceChildren(
+    h("p", { class: "price-last" }, h("strong", {}, fmtLocal(last.close, data.currency)), h("span", { class: "cell-sub" }, `Close ${fmtDateLong(last.date)}`)),
+    seg,
+    priceChart(pts, data.currency, period),
+    h(
+      "dl",
+      { class: "facts price-facts" },
+      fact(`${period.label} ago`, fmtLocal(pts[0].close, data.currency)),
+      fact("Change", `${fmtLocal(last.close - pts[0].close, data.currency, last.close)} (${pctOf(pts) > 0 ? "+" : ""}${pctOf(pts).toFixed(1)}%)`),
+      fact("High", fmtLocal(Math.max(...closes), data.currency)),
+      fact("Low", fmtLocal(Math.min(...closes), data.currency)),
+    ),
+    priceTable(pts, data.currency, period),
+    h("p", { class: "hint" }, `${fxNote} Daily closes, delayed. Source: Yahoo Finance.`),
+  );
+}
+
+async function openPrice(code) {
+  state.priceCode = code;
+  if (state.history[code]?.error) delete state.history[code];
+  renderPrice();
+  const dialog = $("#price-dialog");
+  if (!dialog.open) dialog.showModal();
+  if (state.history[code]) return;
+  try {
+    state.history[code] = await track(api("GET", `/api/history/${encodeURIComponent(code)}`));
+  } catch (err) {
+    state.history[code] = { error: err instanceof ApiError ? err.message : "Price history is unavailable right now." };
+  }
+  if (state.priceCode === code && dialog.open) renderPrice();
+}
+
 // ------------------------------------------------------------------ events
 
 function bindEvents() {
@@ -1330,6 +1617,9 @@ function bindEvents() {
       navigate(nav.dataset.nav);
       return;
     }
+    const price = event.target.closest("[data-price]");
+    if (price) return openPrice(price.dataset.price);
+    if (event.target.closest("[data-close-price]")) return $("#price-dialog").close();
     const open = event.target.closest("[data-open]");
     if (open) return openDetail(open.dataset.open);
     const sort = event.target.closest("[data-sort]");
@@ -1360,12 +1650,16 @@ function bindEvents() {
     if (event.target.closest("[data-close-token]")) $("#token-dialog").close();
   });
 
-  for (const id of ["#detail", "#token-dialog"]) {
+  for (const id of ["#detail", "#token-dialog", "#price-dialog"]) {
     $(id).addEventListener("click", (event) => {
       if (event.target === event.currentTarget) event.currentTarget.close(); // backdrop click
     });
   }
   $("#wallet-btn").addEventListener("click", openWallet);
+  // Re-fit an open popup when the screen changes (rotation, window resize, foldables).
+  addEventListener("resize", () => {
+    if ($("#detail").open) fitDialog($("#detail-body"), detailFit.pagers);
+  });
 
   // Dollar equivalents of token amounts: hover or keyboard focus only.
   document.addEventListener("pointerover", (event) => {

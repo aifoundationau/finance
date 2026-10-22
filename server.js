@@ -21,9 +21,10 @@ import {
 import { idempotent } from "./src/idempotency.js";
 import { assertValid } from "./public/shared/json-schema.js";
 import {
-  COMMERCE_SETTINGS_PATCH, EMPTY_REQUEST, ITEM_INPUT, ITEM_PATCH, LOGIN_REQUEST, REPORT, RUN_REQUEST, SETTINGS_PATCH,
-  UNLOCK_REQUEST, WALLET_ADJUST_REQUEST,
+  ASX_CODE, COMMERCE_SETTINGS_PATCH, EMPTY_REQUEST, ITEM_INPUT, ITEM_PATCH, LOGIN_REQUEST, PRICE_HISTORY, REPORT, RUN_REQUEST,
+  SETTINGS_PATCH, UNLOCK_REQUEST, WALLET_ADJUST_REQUEST,
 } from "./public/shared/schemas.js";
+import { displayCountry, priceHistory } from "./src/sources/history.js";
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -214,6 +215,10 @@ const ROUTES = [
       await scheduleNext();
       return ok(saved);
     },
+  },
+  {
+    method: "GET", path: "/api/history/:code", summary: "A year of daily closes for one ASX code, in the viewer's local currency", response: PRICE_HISTORY,
+    handler: async (ctx) => ok(await priceHistory(assertValid(ASX_CODE, ctx.params.code.toUpperCase()), displayCountry(ctx.req))),
   },
   { method: "GET", path: "/api/commerce", summary: "Token economy as seen by this visitor", handler: async (ctx) => ok(await commerceForViewer(ctx)) },
   {

@@ -80,7 +80,6 @@
         <li><a href="#overview" data-nav="overview" data-agent-id="nav_overview_side" data-testid="nav_overview_side"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span class="nav-label">Overview</span></a></li>
         <li><a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed_side" data-testid="nav_confirmed_side"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span class="nav-label">Confirmed</span><span class="nav-count" data-count="confirmed"></span></a></li>
         <li><a href="#upcoming" data-nav="upcoming" data-agent-id="nav_upcoming_side" data-testid="nav_upcoming_side"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="nav-label">Upcoming</span><span class="nav-count" data-count="upcoming"></span></a></li>
-        <li><a href="#other" data-nav="other" data-agent-id="nav_other_side" data-testid="nav_other_side"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span class="nav-label">Other ASX</span><span class="nav-count" data-count="other"></span></a></li>
         <li><a href="#takeaways" data-nav="takeaways" data-agent-id="nav_takeaways_side" data-testid="nav_takeaways_side"><svg class="icon" aria-hidden="true"><use href="#i-bulb"/></svg><span class="nav-label">Key takeaways</span></a></li>
         <li><a href="#settings" data-nav="settings" data-agent-id="nav_settings_side" data-testid="nav_settings_side"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-label">Settings</span></a></li>
       </ul>
@@ -166,16 +165,6 @@
           </div>
         </header>
         <div class="table-wrap"><table class="data-table" id="upcoming-table" role="table"></table></div>
-      </section>
-
-      <section class="view" id="other" data-view="other" aria-labelledby="other-title">
-        <header class="section-head">
-          <div>
-            <h2 id="other-title">Other ASX contract news</h2>
-            <p class="section-sub">Listed companies announcing contracts where no Australian government counterparty was identified. Not part of the brief, but often price-moving.</p>
-          </div>
-        </header>
-        <div class="table-wrap"><table class="data-table" id="other-table" role="table"></table></div>
       </section>
 
       <section class="view" id="takeaways-view" data-view="takeaways" aria-labelledby="takeaways-title">
@@ -270,7 +259,6 @@
       <a href="#overview" data-nav="overview" data-agent-id="nav_overview_bottom" data-testid="nav_overview_bottom"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span>Brief</span></a>
       <a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed_bottom" data-testid="nav_confirmed_bottom"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></a>
       <a href="#upcoming" data-nav="upcoming" data-agent-id="nav_upcoming_bottom" data-testid="nav_upcoming_bottom"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span>Upcoming</span></a>
-      <a href="#other" data-nav="other" data-agent-id="nav_other_bottom" data-testid="nav_other_bottom"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg><span>Other</span></a>
       <a href="#takeaways" data-nav="takeaways" data-agent-id="nav_takeaways_bottom" data-testid="nav_takeaways_bottom"><svg class="icon" aria-hidden="true"><use href="#i-bulb"/></svg><span>Takeaways</span></a>
       <a href="#settings" data-nav="settings" data-agent-id="nav_settings_bottom" data-testid="nav_settings_bottom"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span>Settings</span></a>
     </nav>
@@ -296,6 +284,19 @@
         <button class="icon-btn" type="button" data-close-token aria-label="Close" data-agent-id="btn_close_token_dialog" data-testid="btn_close_token_dialog"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       </header>
       <div class="dialog-body" id="token-body"></div>
+    </div>
+  </dialog>
+
+  <dialog class="dialog dialog-small" id="price-dialog" aria-labelledby="price-title" data-agent-id="dialog_price" data-testid="dialog_price">
+    <div class="dialog-inner">
+      <header class="dialog-head">
+        <div class="dialog-heading">
+          <p class="eyebrow" id="price-eyebrow"></p>
+          <h2 id="price-title"></h2>
+        </div>
+        <button class="icon-btn" type="button" data-close-price aria-label="Close price history" data-agent-id="btn_close_price" data-testid="btn_close_price"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </header>
+      <div class="dialog-body" id="price-body"></div>
     </div>
   </dialog>
 

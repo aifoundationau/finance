@@ -8,7 +8,7 @@ Each report follows the analyst brief's three sections:
 2. **Upcoming contracts & speculation (next 7 days):** tenders, shortlists, preferred tenderers, expected decisions.
 3. **Strategic key takeaways:** the biggest ASX-linked awards, the busiest sectors, and price reactions.
 
-A fourth list, **Other ASX**, shows listed companies' contract announcements where no Australian government customer was identified (for example US hospital deals). They're not part of the brief, but they often move prices.
+Only contracts with an Australian government customer are included. Listed companies' deals with private customers, foreign governments or (by default) local councils are left out.
 
 ## Quick start
 
@@ -101,6 +101,8 @@ To use Firestore from your own computer instead of `data/`, run `gcloud auth app
 
 - **Filters** (search, ASX-listed, *Has options*, Watchlist, sector, government, source) apply to every table and to the KPI tiles and sector chart.
 - **Watchlist** (Settings): ASX codes you hold or trade. Matching rows get a star, and a notice lists them.
+- **ASX codes come first:** in every table, rows naming an ASX-listed company sit above the rest, and their ticker chips are highlighted.
+- **Ticker chip** opens the price history: 7-day, 1-month, 6-month and 1-year moves with a chart of daily closes (Yahoo Finance, delayed). Prices are shown in the visitor's local currency, converted from AUD at the latest ECB rate (Frankfurter). The location comes from Vercel's or Cloudflare's country header (or `GEO_COUNTRY_HEADER`), then the browser's time zone. Visitors in Australia, unrecognised places, or anywhere the ECB doesn't publish a rate see AUD.
 - **Company name** opens details: all sources, AusTender notices, latest price, market cap, option expiries, and links to the ASX company and announcements pages.
 - **Copy Markdown** copies the brief in the exact table format of the analyst prompt. **CSV** downloads all three lists.
 

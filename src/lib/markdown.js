@@ -58,7 +58,7 @@ export function reportToMarkdown(report) {
 
 export function reportToCsv(report) {
   const rows = [["Section", "Date / Window", "Company", "Ticker", "Agency", "Jurisdiction", "Value (AUD)", "Value", "Scope / Details", "Sector", "Stage", "Confidence", "Primary source", "Source URL"]];
-  for (const [section, list] of [["Confirmed", report.confirmed], ["Upcoming", report.upcoming], ["Other ASX", report.other ?? []]]) {
+  for (const [section, list] of [["Confirmed", report.confirmed], ["Upcoming", report.upcoming]]) {
     for (const i of list) {
       rows.push([
         section,

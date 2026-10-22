@@ -33,10 +33,8 @@ test("news: a shortlist with no named vendors still reaches Section 2", () => {
   assert.deepEqual(item.companies, []);
 });
 
-test("news: ASX contract news with a private customer goes to the other list", () => {
-  const item = newsToItem(news("Pro Medicus signs $43M, seven-year contract with Virtua Health in US"), { resolver: r, now: NOW });
-  assert.equal(item.kind, "other");
-  assert.equal(item.companies[0].code, "PME");
+test("news: ASX contract news with a private customer is left out", () => {
+  assert.equal(newsToItem(news("Pro Medicus signs $43M, seven-year contract with Virtua Health in US"), { resolver: r, now: NOW }), null);
 });
 
 test("announcement: NRFC funding for a Defence program counts", () => {
@@ -52,7 +50,7 @@ test("announcement: NRFC funding for a Defence program counts", () => {
 test("announcement: a regulator in a filing is not a customer", () => {
   assert.equal(build(announcement("PME", "Extension of Time to Hold 2026 Annual General Meeting", "ASIC has granted an extension.")), null);
   const supply = build(announcement("PME", "Licence & Supply Agreement with Umedica", "The product is registered with the TGA. The agreement with Umedica covers supply."));
-  assert.equal(supply.kind, "other");
+  assert.equal(supply, null);
 });
 
 test("announcement: boilerplate 'Commonwealth' does not make a government deal", () => {
@@ -62,6 +60,5 @@ test("announcement: boilerplate 'Commonwealth' does not make a government deal",
 
 test("announcement: local councils stay out of the brief by default", () => {
   const item = build(announcement("PME", "Asset Vision wins $1.55M council contract", "City of Whittlesea awards Asset Vision a five-year contract valued at $1.55 million."));
-  assert.equal(item.kind, "other");
-  assert.equal(item.note, "Local government counterparty");
+  assert.equal(item, null);
 });

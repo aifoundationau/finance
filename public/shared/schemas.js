@@ -144,6 +144,7 @@ export const REPORT_ITEM = obj(
   "Report item",
   {
     id: str("ID", { pattern: "^[\\w-]{1,64}$" }),
+    // "other" (non-government contract news) only appears in reports saved before it was dropped.
     kind: str("Kind", { enum: ["confirmed", "upcoming", "other"] }),
     date: DATE,
     title: nullable(str("Headline")),
@@ -197,6 +198,22 @@ const MARKET = obj(
   },
   { required: ["code", "asOf"] },
 );
+export const PRICE_HISTORY = obj(
+  "Price history",
+  {
+    code: ASX_CODE,
+    name: nullable(str("Name")),
+    country: nullable(str("Viewer country", { pattern: "^[A-Z]{2}$" })),
+    currency: str("Currency", { pattern: "^[A-Z]{3}$" }),
+    fx: { anyOf: [obj("Exchange rate", { rate: { type: "number", minimum: 0 }, date: DATE, source: str("Source") }), { type: "null" }] },
+    fxError: str("Exchange rate error"),
+    asOf: TIMESTAMP,
+    source: str("Source"),
+    points: { type: "array", items: obj("Daily close", { date: DATE, close: { type: "number" } }) },
+  },
+  { required: ["code", "name", "country", "currency", "fx", "asOf", "source", "points"] },
+);
+
 const SOURCE_HEALTH = obj(
   "Source health",
   {
@@ -240,7 +257,7 @@ export const REPORT = obj(
       bySector: SECTOR_STATS,
       byJurisdiction: { type: "object", additionalProperties: int("Count", 0, 100_000) },
       bySource: { type: "object", additionalProperties: int("Count", 0, 100_000) },
-    }),
+    }, { required: ["confirmed", "upcoming", "asxLinked", "asxTickers", "disclosedValueAud", "bySector", "byJurisdiction", "bySource"] }),
     ai: obj(
       "AI analyst run",
       {
@@ -253,5 +270,5 @@ export const REPORT = obj(
       { required: ["model", "usage", "costUsd"] },
     ),
   },
-  { required: ["version", "id", "date", "mode", "generatedAt", "window", "confirmed", "upcoming", "other", "takeaways", "market", "sources", "stats"] },
+  { required: ["version", "id", "date", "mode", "generatedAt", "window", "confirmed", "upcoming", "takeaways", "market", "sources", "stats"] },
 );
