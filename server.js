@@ -15,9 +15,10 @@ import {
   updateItem, updateSettings, viewerCountry,
 } from "./src/commerce.js";
 import {
-  ADMIN_COOKIE, AuthError, WALLET_COOKIE, adminIdentity, authMode, clearOAuthCookie, cookie, googleCallback, googleStart, isAdmin,
-  isHttps, login, logoutCookie, parseCookies,
+  ADMIN_COOKIE, AuthError, WALLET_COOKIE, adminIdentity, authMode, clearOAuthCookie, cookie, currentUser, googleCallback, googleConfigured,
+  googleStart, isAdmin, isHttps, login, logoutCookie, oauthReturnTo, parseCookies, signInCookies, signOutCookies,
 } from "./src/admin.js";
+import { registerUser } from "./src/users.js";
 import { idempotent } from "./src/idempotency.js";
 import { assertValid } from "./public/shared/json-schema.js";
 import {
@@ -66,6 +67,12 @@ function telemetry(level, event, fields) {
 let scheduleTimer = null;
 let nextScheduled = null;
 
+// The in-process daily schedule only runs on a computer that keeps its own data/. On Vercel,
+// Vercel Cron calls /api/cron/daily instead (see vercel.json); a computer using the same
+// Firestore leaves the daily report to that cron, since a startup or timer run here would
+// make today's report early and the cron would then skip it.
+const localSchedule = !config.serverless && storage().kind === "files";
+
 /** Starts a run; on Vercel the function is kept alive until it finishes (up to its time limit). */
 async function beginRun(mode, trigger) {
   const { started, done } = await startRun(mode, trigger, { log: telemetry });
@@ -73,10 +80,8 @@ async function beginRun(mode, trigger) {
   return { started, done };
 }
 
-// Local only: an in-process timer for the daily report. On Vercel, Vercel Cron calls
-// /api/cron/daily instead (see vercel.json).
 async function scheduleNext() {
-  if (config.serverless) return;
+  if (!localSchedule) return;
   clearTimeout(scheduleTimer);
   const settings = await loadSettings();
   nextScheduled = settings.schedule.enabled ? nextRunAt(settings.schedule.time) : null;
@@ -138,9 +143,9 @@ async function status(ctx) {
     canManage: canManage(ctx.req),
     // A new deployment starts with no report; any visitor may start that first standard run.
     firstRunAllowed: !hasReports,
-    schedule: config.serverless
-      ? { kind: "cron", note: "Daily report between 6 and 7 pm Sydney time (5 to 6 pm in winter), run by Vercel Cron." }
-      : { kind: "local", note: null },
+    schedule: localSchedule
+      ? { kind: "local", note: null }
+      : { kind: "cron", note: "Daily report between 6 and 7 pm Sydney time (5 to 6 pm in winter), run by Vercel Cron." },
     nextScheduled: nextScheduled?.toISOString() ?? null,
     today: sydneyDate(),
     storage: storage().kind,
@@ -169,6 +174,8 @@ async function commerceForViewer(ctx) {
     admin: who.admin,
     adminIdentity: who.admin ? adminIdentity(ctx.req) : null,
     adminAuth: authMode(),
+    user: currentUser(ctx.req),
+    googleSignIn: googleConfigured(),
   };
 }
 
@@ -217,8 +224,12 @@ const ROUTES = [
     },
   },
   {
-    method: "GET", path: "/api/history/:code", summary: "A year of daily closes for one ASX code, in the viewer's local currency", response: PRICE_HISTORY,
-    handler: async (ctx) => ok(await priceHistory(assertValid(ASX_CODE, ctx.params.code.toUpperCase()), displayCountry(ctx.req))),
+    method: "GET", path: "/api/history/:code", summary: "A year of daily closes for any ticker (ASX or overseas), in the viewer's local currency", response: PRICE_HISTORY,
+    handler: async (ctx) => {
+      const code = assertValid(ASX_CODE, ctx.params.code.toUpperCase());
+      const exchange = ctx.url.searchParams.get("exchange")?.toUpperCase() || null;
+      return ok(await priceHistory(code, displayCountry(ctx.req), exchange));
+    },
   },
   { method: "GET", path: "/api/commerce", summary: "Token economy as seen by this visitor", handler: async (ctx) => ok(await commerceForViewer(ctx)) },
   {
@@ -236,6 +247,10 @@ const ROUTES = [
   {
     method: "POST", path: "/api/admin/logout", summary: "Superadmin sign-out", schema: EMPTY_REQUEST,
     handler: async (ctx) => ok({ ok: true }, { headers: { "set-cookie": logoutCookie(ctx.req) } }),
+  },
+  {
+    method: "POST", path: "/api/auth/logout", summary: "Sign out (ends the user and any superadmin session)", schema: EMPTY_REQUEST,
+    handler: async (ctx) => ok({ ok: true }, { headers: { "set-cookie": signOutCookies(ctx.req) } }),
   },
   { method: "GET", path: "/api/admin/state", admin: true, summary: "Commerce settings, items, wallets and ledger", handler: async () => ok(withLabels(adminView(await getState()))) },
   { method: "PUT", path: "/api/admin/settings", admin: true, schema: COMMERCE_SETTINGS_PATCH, summary: "Token system toggles and prices", handler: async (ctx) => ok(withLabels(await updateSettings(ctx.body))) },
@@ -343,22 +358,32 @@ function redirect(res, location, cookies = []) {
   res.end();
 }
 
-// Google sign-in for the superadmin: browser navigations, so they answer with redirects
-// (back to the Superadmin panel, with any problem in ?auth_error=) rather than JSON.
+// Google sign-in: browser navigations, so they answer with redirects (back to the page view the
+// person started from, ?return=, with any problem in ?auth_error=) rather than JSON. The first
+// sign-in registers the person as a supporter; listed superadmins also get a superadmin session.
 async function handleAuth(req, res, url) {
+  const back = (view, error) => `/${error ? `?auth_error=${encodeURIComponent(error)}` : ""}${view ? `#${view}` : ""}`;
+  let returnTo = "";
   try {
     if (url.pathname === "/auth/google") {
-      const { location, cookies } = googleStart(req);
+      const { location, cookies } = googleStart(req, { returnTo: url.searchParams.get("return") });
       return redirect(res, location, cookies);
     }
-    const { email, cookies } = await googleCallback(req, url);
-    telemetry("info", "admin.signed_in", { method: "google", email });
-    return redirect(res, "/#admin", cookies);
+    returnTo = oauthReturnTo(req);
+    const { profile } = await googleCallback(req, url);
+    const user = await registerUser(profile);
+    telemetry("info", user.created ? "user.registered" : "user.signed_in", { uid: user.uid, role: user.role });
+    const { superadmin, cookies } = signInCookies(req, user);
+    if (superadmin) telemetry("info", "admin.signed_in", { method: "google", email: user.email });
+    // Started from the Superadmin panel with an address that isn't listed: signed in, but say why
+    // the panel stays locked.
+    const note = returnTo === "admin" && !superadmin ? `Signed in as ${user.email}, which is not a superadmin of this app.` : null;
+    return redirect(res, back(returnTo, note), cookies);
   } catch (err) {
     if (!(err instanceof AuthError)) console.error(err);
-    telemetry("warn", "admin.sign_in_failed", { code: err.code ?? "AUTH_FAILED", message: err.message });
+    telemetry("warn", "user.sign_in_failed", { code: err.code ?? "AUTH_FAILED", message: err.message });
     const message = err instanceof AuthError ? err.message : "Sign-in failed. Try again.";
-    return redirect(res, `/?auth_error=${encodeURIComponent(message)}#admin`, [clearOAuthCookie(req)]);
+    return redirect(res, back(returnTo, message), [clearOAuthCookie(req)]);
   }
 }
 
@@ -424,9 +449,12 @@ server.listen(config.port, config.host, async () => {
   const shown = config.host === "0.0.0.0" ? "localhost" : config.host;
   console.log(`MY ASX Options running at http://${shown}:${config.port}`);
   console.log(`AI analyst: ${aiConfigured() ? "available (ANTHROPIC_API_KEY found)" : "off (no ANTHROPIC_API_KEY)"}`);
-  console.log(`Storage: ${storage().kind}; superadmin sign-in: ${authMode() ?? "not configured"}`);
+  console.log(`Storage: ${storage().kind}; Google sign-in: ${googleConfigured() ? "on" : "off (no GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET)"}; superadmin sign-in: ${authMode() ?? "not configured"}`);
   // On Vercel, instances start on demand; the daily report comes from Vercel Cron instead.
-  if (config.serverless) return;
+  if (!localSchedule) {
+    if (!config.serverless) console.log("Daily report: made by the deployment's Vercel Cron (shared Firestore), so none is scheduled here.");
+    return;
+  }
   await scheduleNext();
   if (nextScheduled) console.log(`Next scheduled report: ${nextScheduled.toLocaleString("en-AU", { timeZone: "Australia/Sydney" })} (Sydney)`);
   const settings = await loadSettings();

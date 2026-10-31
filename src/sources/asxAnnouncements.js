@@ -33,8 +33,8 @@ export async function fetchAnnouncements({ since, maxPages = 12, pageSize = 500,
 }
 
 export const CONTRACT_NOUN_RE =
-  /\b(?:contracts?|orders?|purchase orders?|tenders?|agreements?|panel|framework|deed|supply|award(?:s|ed)?|deals?|engagement|mandate|standing offer|extension|renewal|partnership)\b/i;
-const WIN_VERB_RE = /\b(?:secures?|secured|wins?|won|awarded|lands?|signs?|signed|executes?|executed|selected|preferred|appointed)\b/i;
+  /\b(?:contracts?|orders?|purchase orders?|tenders?|agreements?|panel|framework|deed|supply|award(?:s|ed)?|deals?|engagement|mandate|standing offer|extension|renewal|partnership|shortlist(?:ed)?|down-?select(?:ed)?|letter of intent|LOI|MOU|expressions? of interest|RFT|RFP)\b/i;
+const WIN_VERB_RE = /\b(?:secures?|secured|wins?|won|awarded|lands?|signs?|signed|executes?|executed|selected|preferred|appointed|shortlisted|down-?selected|chosen|tender|preferred tenderer|bids?|nominated)\b/i;
 const MONEY_RE = /\$\s?\d/;
 const HEADLINE_EXCLUDE_RE =
   /\b(?:appendix|proxy|(?:annual )?general meeting|AGM|buy-?back|director'?s? interest|substantial (?:holder|holding)|cleansing|placement|entitlement offer|share purchase plan|SPP|capital raising|notes offering|unsecured notes|convertible notes|quotation of securities|issue of (?:shares|securities|options)|trading halt|suspension|reinstatement|dividend|distribution|net tangible|top 20|results of meeting|annual report|quarterly|half[- ]year|investor presentation|webinar|letter to shareholders|chair'?s address|exclusivity|takeovers? panel|takeover|scheme implementation|scheme booklet|bidder'?s statement|target'?s statement|offer period|merger|demerger|board succession|succession|termination|terminates?|update on)\b/i;

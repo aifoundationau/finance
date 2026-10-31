@@ -20,6 +20,7 @@
   <a class="skip-link" href="#main" data-agent-id="link_skip_to_content" data-testid="link_skip_to_content">Skip to content</a>
 
   <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-google" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></symbol>
     <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0f2a4a"/><path d="M7 21.5l5.5-5.5 4 4L25 11.5" fill="none" stroke="#86b6ef" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="11.5" r="2.4" fill="#ffffff"/></symbol>
     <symbol id="i-overview" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/></g></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.2"/></g></symbol>
@@ -42,6 +43,7 @@
     <symbol id="i-token" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#e3b341"/><circle cx="12" cy="12" r="7.2" fill="none" stroke="#9a6c0b" stroke-width="1.6"/><path d="M8.6 9.2h6.8M12 9.2v6.4" stroke="#7a5306" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7"/></g></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l7 2.8v5.4c0 4.3-2.9 7.6-7 8.8-4.1-1.2-7-4.5-7-8.8V6.3z"/><path d="M9 12l2.2 2.2L15.3 10" stroke-linecap="round"/></g></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></g></symbol>
     <symbol id="i-up" viewBox="0 0 12 12"><path d="M6 2.5l4 6H2z" fill="currentColor"/></symbol>
     <symbol id="i-down" viewBox="0 0 12 12"><path d="M6 9.5l-4-6h8z" fill="currentColor"/></symbol>
   </svg>
@@ -65,6 +67,14 @@
         </button>
         <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch colour theme" data-agent-id="btn_toggle_theme" data-testid="btn_toggle_theme">
           <svg class="icon" aria-hidden="true"><use href="#i-theme"/></svg>
+        </button>
+      </div>
+      <div class="appbar-account">
+        <a class="btn btn-ghost btn-google-signin" id="signin-btn" href="/auth/google" hidden aria-label="Sign in with Google" title="New here? Sign in with Google to join as a supporter." data-agent-id="btn_sign_in" data-testid="btn_sign_in">
+          <svg class="icon google-icon" aria-hidden="true"><use href="#i-google"/></svg><span class="btn-text">Sign in with Google</span>
+        </a>
+        <button class="account-btn" id="account-btn" type="button" hidden aria-haspopup="dialog" data-agent-id="btn_open_account" data-testid="btn_open_account">
+          <span class="avatar" id="account-initial" aria-hidden="true"></span><span class="btn-text" id="account-name"></span>
         </button>
       </div>
       <div class="run-progress" id="run-progress" hidden>
@@ -109,7 +119,7 @@
             <label for="f-sector" class="visually-hidden">Sector</label>
             <select id="f-sector" data-agent-id="select_sector" data-testid="select_sector"><option value="">All sectors</option></select>
           </div>
-          <div class="select">
+          <div class="select" hidden>
             <label for="f-jur" class="visually-hidden">Government</label>
             <select id="f-jur" data-agent-id="select_jurisdiction" data-testid="select_jurisdiction"><option value="">All governments</option></select>
           </div>
@@ -250,8 +260,39 @@
         <div id="admin-root"></div>
       </section>
 
+      <section class="view" id="welcome" data-view="welcome" aria-labelledby="welcome-title">
+        <article class="card welcome">
+          <p class="welcome-kicker">A note from our founder</p>
+          <h2 id="welcome-title">Welcome to MY ASX Options</h2>
+          <p>Australian governments sign contracts worth billions of dollars every week. When an ASX-listed company wins one, it can move the share price, but the news is spread across AusTender, ASX announcements and dozens of news sites.</p>
+          <p>MY ASX Options brings it together in one brief each day: contracts confirmed in the past 7 days, decisions expected in the next 7, the ASX code of each company we can match, whether it has exchange-traded options, and the key takeaways.</p>
+          <blockquote class="welcome-quote">
+            <p>“We built MY ASX Options so you can see government contract news in one place, check it against the source, and make up your own mind.”</p>
+            <footer>Founder, AI Foundation</footer>
+          </blockquote>
+          <h3>Getting started</h3>
+          <ul>
+            <li><strong>Overview</strong> has the day's brief and its key takeaways. <strong>Confirmed</strong> and <strong>Upcoming</strong> list each item with its source.</li>
+            <li><strong>Register free</strong> with your Google account, using the button at the top right. Everyone starts as a Supporter.</li>
+            <li>Some details, such as a contract's value and sources, may cost <strong>tokens</strong>. Our <a href="/token-policy.html" target="_blank" rel="noopener" data-agent-id="link_welcome_token_policy" data-testid="link_welcome_token_policy">Token Policy</a> explains how they work.</li>
+          </ul>
+          <p class="notice notice-warn">General information only, not financial advice. Options are risky: check the source, consider your own situation and consider getting advice from a licensed financial adviser before you trade.</p>
+          <div class="welcome-actions">
+            <a class="btn btn-primary" href="#overview" data-nav="overview" data-agent-id="btn_welcome_read_brief" data-testid="btn_welcome_read_brief">Read today's brief</a>
+          </div>
+        </article>
+      </section>
+
       <footer class="app-foot">
         <p>Research aid, not financial advice. Data from AusTender (Department of Finance, CC BY 3.0 AU), ASX, Google News and publisher feeds; prices are delayed. Rule-based extraction can misread a story, so check the linked source before acting.</p>
+        <nav class="foot-links" aria-label="AI Foundation and our policies">
+          <a href="https://www.aifoundation.net.au/" target="_blank" rel="noopener" title="AI Foundation's website" data-agent-id="link_footer_copyright" data-testid="link_footer_copyright">© 2026 AI Foundation</a>
+          <a href="#welcome" data-nav="welcome" data-agent-id="link_footer_founder_welcome" data-testid="link_footer_founder_welcome">Founder Welcome</a>
+          <a href="/privacy.html" target="_blank" rel="noopener" data-agent-id="link_footer_privacy" data-testid="link_footer_privacy">Privacy Policy</a>
+          <a href="/terms.html" target="_blank" rel="noopener" data-agent-id="link_footer_terms" data-testid="link_footer_terms">Terms of Service</a>
+          <a href="/ai-policy.html" target="_blank" rel="noopener" data-agent-id="link_footer_ai_policy" data-testid="link_footer_ai_policy">AI Policy (ISO/IEC 42001)</a>
+          <a href="/token-policy.html" target="_blank" rel="noopener" data-agent-id="link_footer_token_policy" data-testid="link_footer_token_policy">Token Policy</a>
+        </nav>
       </footer>
     </main>
 

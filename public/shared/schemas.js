@@ -12,7 +12,7 @@ const int = (title, minimum, maximum, extra = {}) => ({ type: "integer", title, 
 const str = (title, extra = {}) => ({ type: "string", title, ...extra });
 const nullable = (schema) => ({ ...schema, type: [schema.type, "null"], ...(schema.enum ? { enum: [...schema.enum, null] } : {}) });
 
-export const ASX_CODE = { type: "string", pattern: "^[A-Z0-9]{3,6}$", title: "ASX code", "x-pattern-message": "ASX codes are 3 to 6 letters or digits, e.g. TNE." };
+export const ASX_CODE = { type: "string", pattern: "^[A-Z0-9.-]{1,12}$", title: "Ticker code", "x-pattern-message": "Ticker codes are 1 to 12 characters, e.g. TNE, LMT or BA." };
 export const SECTORS = ["Defence", "Cyber/IT", "Infrastructure", "Energy", "Health", "Transport", "Services", "Other"];
 export const JURISDICTIONS = ["Federal", "NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT", "Local", "Unknown"];
 export const LISTINGS = ["ASX", "Overseas", "Private", "Government-owned", "Unverified"];
@@ -202,9 +202,12 @@ export const PRICE_HISTORY = obj(
   "Price history",
   {
     code: ASX_CODE,
+    symbol: nullable(str("Ticker symbol")),
+    exchange: nullable(str("Exchange")),
     name: nullable(str("Name")),
     country: nullable(str("Viewer country", { pattern: "^[A-Z]{2}$" })),
     currency: str("Currency", { pattern: "^[A-Z]{3}$" }),
+    nativeCurrency: nullable(str("Native currency", { pattern: "^[A-Z]{3}$" })),
     fx: { anyOf: [obj("Exchange rate", { rate: { type: "number", minimum: 0 }, date: DATE, source: str("Source") }), { type: "null" }] },
     fxError: str("Exchange rate error"),
     asOf: TIMESTAMP,

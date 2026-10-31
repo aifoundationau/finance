@@ -128,22 +128,28 @@ export function parseServiceAccount(raw) {
   return key;
 }
 
+/** The firebase-admin app for FIREBASE_SERVICE_ACCOUNT, shared by storage and the user directory. */
+export async function firebaseApp() {
+  const { applicationDefault, cert, getApps, initializeApp } = await import("firebase-admin/app");
+  const existing = getApps().find((a) => a.name === "my-asx-options");
+  if (existing) return existing;
+  // "adc" uses this computer's Google login (gcloud auth application-default login) instead of a key.
+  const adc = process.env.FIREBASE_SERVICE_ACCOUNT.trim().toLowerCase() === "adc";
+  const key = adc ? null : parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
+  const options = adc
+    ? { credential: applicationDefault(), projectId: process.env.FIREBASE_PROJECT_ID || "ai-foundation-firebase" }
+    : { credential: cert(key), projectId: key.project_id };
+  return initializeApp(options, "my-asx-options");
+}
+
 class FirestoreBackend {
   kind = "firestore";
   #db = null;
 
   async db() {
     if (this.#db) return this.#db;
-    const { applicationDefault, cert, getApps, initializeApp } = await import("firebase-admin/app");
     const { getFirestore } = await import("firebase-admin/firestore");
-    // "adc" uses this computer's Google login (gcloud auth application-default login) instead of a key.
-    const adc = process.env.FIREBASE_SERVICE_ACCOUNT.trim().toLowerCase() === "adc";
-    const key = adc ? null : parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
-    const options = adc
-      ? { credential: applicationDefault(), projectId: process.env.FIREBASE_PROJECT_ID || "ai-foundation-firebase" }
-      : { credential: cert(key), projectId: key.project_id };
-    const app = getApps().find((a) => a.name === "my-asx-options") ?? initializeApp(options, "my-asx-options");
-    this.#db = getFirestore(app, process.env.FIRESTORE_DATABASE_ID || "(default)");
+    this.#db = getFirestore(await firebaseApp(), process.env.FIRESTORE_DATABASE_ID || "(default)");
     return this.#db;
   }
 

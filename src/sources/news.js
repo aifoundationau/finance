@@ -5,6 +5,18 @@ import { truncate } from "../lib/text.js";
 // Google News search RSS (Australian edition) covers paywalled and syndicated outlets such as
 // the AFR, The Australian and Defence Connect; direct feeds add summaries where available.
 export const GOOGLE_QUERIES = [
+  // State & Federal spec & tender sweeps
+  '"preferred tenderer" OR "preferred bidder" OR "preferred proponent" NSW OR Victoria OR Queensland when:7d',
+  '"preferred tenderer" OR "preferred bidder" WA OR "South Australia" OR Tasmania when:7d',
+  '"shortlisted" tender NSW OR Victoria OR Queensland OR WA when:7d',
+  '"down-selected" OR "down selected" tender Australia OR Defence when:7d',
+  '"tender closing" OR "approaches to market" Australia government when:7d',
+  '"sole bidder" OR "exclusive negotiations" Australia government OR Defence when:7d',
+  '"letter of intent" OR "framework agreement" Australia government ASX when:7d',
+  '"major projects" tender awarded OR shortlisted NSW OR VIC OR QLD when:7d',
+  'site:defenceconnect.com.au "shortlist" OR "preferred" OR "tender" when:7d',
+  'site:innovationaus.com "procurement" OR "tender" OR "shortlist" when:7d',
+  'site:itnews.com.au "tender" OR "contract" OR "panel" when:7d',
   '"awarded" contract "Australian Government" when:7d',
   '"Department of Defence" contract awarded when:7d',
   'Defence contract Australia awarded OR signs OR secures when:7d',

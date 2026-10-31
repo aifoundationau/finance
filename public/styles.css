@@ -4,6 +4,112 @@
 
 /* ------------------------------------------------------------------ tokens */
 :root {
+  color-scheme: dark;
+  --bg: #06080c;
+  --surface: #0b0e14;
+  --surface-2: #121721;
+  --surface-3: #1a2230;
+  --ink: #f1f5f9;
+  --ink-2: #94a3b8;
+  --muted: #64748b;
+  --line: #1f293d;
+  --line-strong: #2e3c59;
+  --ring: rgba(0, 229, 153, 0.25);
+  --accent: #00e599;
+  --accent-hover: #4dffb2;
+  --accent-ink: #002112;
+  --accent-soft: rgba(0, 229, 153, 0.12);
+  --link: #00e599;
+  --bar: #00e599;
+  --up: #00e599;
+  --down: #ff3b56;
+  --notice-bg: rgba(255, 184, 0, 0.12);
+  --notice-line: #ffb800;
+  --error-bg: rgba(255, 59, 86, 0.14);
+  --error-line: #ff3b56;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 12px -2px rgba(0, 229, 153, 0.05);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 20px -4px rgba(0, 229, 153, 0.15);
+  --scrim: rgba(6, 8, 12, 0.85);
+
+  --font: "Space Grotesk", "Geist", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: clamp(1.0625rem, 0.98rem + 0.4vw, 1.3rem);
+  --fs-xl: clamp(1.3rem, 1.05rem + 1.1vw, 2rem);
+  --fs-kpi: clamp(1.45rem, 1.15rem + 1vw, 2.1rem);
+
+  --gutter: clamp(0.75rem, 0.45rem + 1.6vw, 2rem);
+  --gap: clamp(0.75rem, 0.6rem + 0.7vw, 1.25rem);
+  --radius: 0.25rem;
+  --radius-sm: 0.125rem;
+  --tap: 2.5rem;
+  --rail: 5.75rem;
+  --sidebar: clamp(13rem, 15vw, 17rem);
+  --bottomnav-h: 3.75rem;
+  --appbar-h: 3.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg: #06080c;
+    --surface: #0b0e14;
+    --surface-2: #121721;
+    --surface-3: #1a2230;
+    --ink: #f1f5f9;
+    --ink-2: #94a3b8;
+    --muted: #64748b;
+    --line: #1f293d;
+    --line-strong: #2e3c59;
+    --ring: rgba(0, 229, 153, 0.25);
+    --accent: #00e599;
+    --accent-hover: #4dffb2;
+    --accent-ink: #002112;
+    --accent-soft: rgba(0, 229, 153, 0.12);
+    --link: #00e599;
+    --bar: #00e599;
+    --up: #00e599;
+    --down: #ff3b56;
+    --notice-bg: rgba(255, 184, 0, 0.12);
+    --notice-line: #ffb800;
+    --error-bg: rgba(255, 59, 86, 0.14);
+    --error-line: #ff3b56;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 12px -2px rgba(0, 229, 153, 0.05);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 20px -4px rgba(0, 229, 153, 0.15);
+    --scrim: rgba(6, 8, 12, 0.85);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #06080c;
+  --surface: #0b0e14;
+  --surface-2: #121721;
+  --surface-3: #1a2230;
+  --ink: #f1f5f9;
+  --ink-2: #94a3b8;
+  --muted: #64748b;
+  --line: #1f293d;
+  --line-strong: #2e3c59;
+  --ring: rgba(0, 229, 153, 0.25);
+  --accent: #00e599;
+  --accent-hover: #4dffb2;
+  --accent-ink: #002112;
+  --accent-soft: rgba(0, 229, 153, 0.12);
+  --link: #00e599;
+  --bar: #00e599;
+  --up: #00e599;
+  --down: #ff3b56;
+  --notice-bg: rgba(255, 184, 0, 0.12);
+  --notice-line: #ffb800;
+  --error-bg: rgba(255, 59, 86, 0.14);
+  --error-line: #ff3b56;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 12px -2px rgba(0, 229, 153, 0.05);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.9), 0 0 20px -4px rgba(0, 229, 153, 0.15);
+  --scrim: rgba(6, 8, 12, 0.85);
+}
+:root[data-theme="light"] {
   color-scheme: light;
   --bg: #f5f5f2;
   --surface: #fcfcfb;
@@ -15,13 +121,13 @@
   --line: #e1e0d9;
   --line-strong: #c3c2b7;
   --ring: rgba(11, 11, 11, 0.1);
-  --accent: #2a78d6;
-  --accent-hover: #256abf;
+  --accent: #009e66;
+  --accent-hover: #008053;
   --accent-ink: #ffffff;
-  --accent-soft: #e8f1fc;
-  --link: #1c5cab;
-  --bar: #2a78d6;
-  --up: #006300;
+  --accent-soft: #e5f9f0;
+  --link: #007a4f;
+  --bar: #009e66;
+  --up: #00873a;
   --down: #c62f2f;
   --notice-bg: #fff6e0;
   --notice-line: #f0d48a;
@@ -30,80 +136,7 @@
   --shadow: 0 1px 2px rgba(11, 11, 11, 0.05), 0 6px 20px rgba(11, 11, 11, 0.05);
   --shadow-lg: 0 12px 48px rgba(11, 11, 11, 0.18);
   --scrim: rgba(11, 11, 11, 0.42);
-
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
-  --fs-xs: 0.75rem;
-  --fs-sm: 0.875rem;
-  --fs-md: 1rem;
-  --fs-lg: clamp(1.0625rem, 0.98rem + 0.4vw, 1.3rem);
-  --fs-xl: clamp(1.3rem, 1.05rem + 1.1vw, 2rem);
-  --fs-kpi: clamp(1.45rem, 1.15rem + 1vw, 2.1rem);
-
-  --gutter: clamp(0.75rem, 0.45rem + 1.6vw, 2rem);
-  --gap: clamp(0.75rem, 0.6rem + 0.7vw, 1.25rem);
-  --radius: 0.75rem;
-  --radius-sm: 0.5rem;
-  --tap: 2.5rem;
-  --rail: 5.75rem;
-  --sidebar: clamp(13rem, 15vw, 17rem);
-  --bottomnav-h: 3.75rem;
-  --appbar-h: 3.75rem;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-    --bg: #0d0d0d;
-    --surface: #1a1a19;
-    --surface-2: #232321;
-    --surface-3: #2c2c2a;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --muted: #a09e95;
-    --line: #2c2c2a;
-    --line-strong: #44443f;
-    --ring: rgba(255, 255, 255, 0.1);
-    --accent-hover: #3987e5;
-    --accent-soft: #16263c;
-    --link: #86b6ef;
-    --bar: #3987e5;
-    --up: #2fbf4a;
-    --down: #f07070;
-    --notice-bg: #2a2412;
-    --notice-line: #5c4b17;
-    --error-bg: #2e1616;
-    --error-line: #6b2a2a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.3);
-    --scrim: rgba(0, 0, 0, 0.6);
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #0d0d0d;
-  --surface: #1a1a19;
-  --surface-2: #232321;
-  --surface-3: #2c2c2a;
-  --ink: #f0efec;
-  --ink-2: #c3c2b7;
-  --muted: #a09e95;
-  --line: #2c2c2a;
-  --line-strong: #44443f;
-  --ring: rgba(255, 255, 255, 0.1);
-  --accent-hover: #3987e5;
-  --accent-soft: #16263c;
-  --link: #86b6ef;
-  --bar: #3987e5;
-  --up: #2fbf4a;
-  --down: #f07070;
-  --notice-bg: #2a2412;
-  --notice-line: #5c4b17;
-  --error-bg: #2e1616;
-  --error-line: #6b2a2a;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.3);
-  --scrim: rgba(0, 0, 0, 0.6);
-}
-
 /* ------------------------------------------------------------------ base */
 *,
 *::before,
@@ -528,6 +561,26 @@ select {
   }
 }
 
+.btn-google-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-google-signin:hover {
+  background-color: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px -2px var(--ring);
+}
+.google-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
 .sidenav {
   display: none;
 }
@@ -613,7 +666,27 @@ select {
   .appbar {
     grid-area: bar;
   }
-  .sidenav {
+  .btn-google-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-google-signin:hover {
+  background-color: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px -2px var(--ring);
+}
+.google-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.sidenav {
     grid-area: nav;
     display: flex;
     flex-direction: column;
@@ -690,7 +763,27 @@ select {
   .filters {
     position: static;
   }
-  .sidenav {
+  .btn-google-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-google-signin:hover {
+  background-color: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px -2px var(--ring);
+}
+.google-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.sidenav {
     top: 0;
     height: 100dvh;
   }
@@ -715,7 +808,27 @@ select {
   .app {
     grid-template-columns: var(--sidebar) minmax(0, 1fr);
   }
-  .sidenav {
+  .btn-google-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-google-signin:hover {
+  background-color: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px -2px var(--ring);
+}
+.google-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.sidenav {
     padding: 1rem 0.75rem;
   }
   .nav-list a {
@@ -798,7 +911,27 @@ select {
     grid-template-rows: auto 1fr;
     grid-template-areas: "bar bar" "main brief";
   }
-  .sidenav {
+  .btn-google-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-google-signin:hover {
+  background-color: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px -2px var(--ring);
+}
+.google-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.sidenav {
     display: none;
   }
   .main {
@@ -2572,4 +2705,27 @@ form.card > button[type="submit"] {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+.btn-google-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-google-signin:hover {
+  background-color: var(--surface-3);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px -2px var(--ring);
+}
+.google-icon {
+  width: 1.15rem;
+  height: 1.15rem;
 }

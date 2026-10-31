@@ -1,7 +1,12 @@
 // Applies the saved colour theme before first paint (loaded synchronously in <head>).
+// Defaults to Terminal Obsidian dark aesthetic.
 try {
   const theme = localStorage.getItem("mao-theme");
-  if (theme === "dark" || theme === "light") document.documentElement.dataset.theme = theme;
+  if (theme === "dark" || theme === "light") {
+    document.documentElement.dataset.theme = theme;
+  } else {
+    document.documentElement.dataset.theme = "dark";
+  }
 } catch {
-  // storage unavailable (private mode): follow the system theme
+  document.documentElement.dataset.theme = "dark";
 }

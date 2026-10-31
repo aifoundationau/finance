@@ -1,16 +1,20 @@
-// Superadmin sign-in and sessions.
-//   Google  GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + SUPERADMIN_EMAILS: OAuth 2.0 authorization
-//           code flow with PKCE; only the listed, Google-verified addresses become superadmin.
-//   Password  SUPERADMIN_PASSWORD, used only when Google sign-in is not configured (local use).
+// Sign-in and sessions.
+//   Google  GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET: anyone may register and sign in (OAuth 2.0
+//           authorization code flow with PKCE). Addresses in SUPERADMIN_EMAILS, Google-verified,
+//           also become superadmin.
+//   Password  SUPERADMIN_PASSWORD, superadmin only, used when SUPERADMIN_EMAILS is not set up for
+//           Google (local use).
 // Sessions are signed, HttpOnly cookies (HMAC-SHA256) rather than server memory, so every server
-// instance accepts them; they expire after 12 hours.
+// instance accepts them. Superadmin sessions expire after 12 hours, user sessions after 30 days.
 import crypto from "node:crypto";
 
 const SESSION_MS = 12 * 3_600_000;
+const USER_SESSION_MS = 30 * 86_400_000;
 const OAUTH_STATE_MS = 10 * 60_000;
 const attempts = new Map(); // address -> { count, resetAt }
 
 export const ADMIN_COOKIE = "mao_admin";
+export const USER_COOKIE = "mao_user";
 export const WALLET_COOKIE = "mao_wallet";
 const OAUTH_COOKIE = "mao_oauth";
 
@@ -34,9 +38,12 @@ const superadminEmails = () =>
       .filter(Boolean),
   );
 
-/** "google", "password" or null (no superadmin access configured). */
+/** Whether people can register and sign in with Google. */
+export const googleConfigured = () => Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
+/** How the superadmin signs in: "google", "password" or null (no superadmin access configured). */
 export function authMode() {
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && superadminEmails().size) return "google";
+  if (googleConfigured() && superadminEmails().size) return "google";
   if (process.env.SUPERADMIN_PASSWORD) return "password";
   return null;
 }
@@ -115,6 +122,29 @@ export const isAdmin = (req) => adminIdentity(req) !== null;
 
 export const logoutCookie = (req) => cookie(ADMIN_COOKIE, "", { maxAge: 0, secure: isHttps(req) });
 
+// ------------------------------------------------------------------ registered users
+
+/** The signed-in person ({ uid, email, name, role }), or null. */
+export function currentUser(req) {
+  const session = verify(parseCookies(req.headers.cookie)[USER_COOKIE]);
+  if (!session?.uid) return null;
+  return { uid: session.uid, email: session.email, name: session.name, role: session.role };
+}
+
+/**
+ * Cookies that sign in a registered person: their user session, plus a superadmin session when
+ * their address is a listed superadmin. Also ends the Google sign-in attempt.
+ */
+export function signInCookies(req, { uid, email, name, role }) {
+  const superadmin = authMode() === "google" && superadminEmails().has(email);
+  // Lax, so the session also counts when the person arrives from a link on another site.
+  const session = cookie(USER_COOKIE, sign({ uid, email, name, role, exp: Date.now() + USER_SESSION_MS }), { maxAge: USER_SESSION_MS / 1000, sameSite: "Lax", secure: isHttps(req) });
+  return { superadmin, cookies: [clearOAuthCookie(req), session, ...(superadmin ? [sessionCookie(req, email)] : [])] };
+}
+
+/** Ends both the user and the superadmin session. */
+export const signOutCookies = (req) => [cookie(USER_COOKIE, "", { maxAge: 0, sameSite: "Lax", secure: isHttps(req) }), logoutCookie(req)];
+
 // ------------------------------------------------------------------ password (local use)
 
 /** Returns the Set-Cookie header for a new session, or throws 401/429/400. */
@@ -140,9 +170,15 @@ export function login(req, password) {
 const origin = (req) => `${isHttps(req) ? "https" : "http"}://${String(req.headers.host)}`;
 export const googleRedirectUri = (req) => `${origin(req)}/auth/google/callback`;
 
-/** Where to send the browser to start Google sign-in, plus the cookie that remembers the attempt. */
-export function googleStart(req) {
-  if (authMode() !== "google") throw new AuthError("Google sign-in is not configured.", 503, "GOOGLE_NOT_CONFIGURED");
+// The page view to return to after sign-in (a hash such as "admin"), or "" for the start page.
+const returnView = (value) => (/^[a-z]{1,20}$/.test(String(value ?? "")) ? String(value) : "");
+
+/**
+ * Where to send the browser to start Google sign-in, plus the cookie that remembers the attempt.
+ * `returnTo` is the page view to come back to afterwards.
+ */
+export function googleStart(req, { returnTo } = {}) {
+  if (!googleConfigured()) throw new AuthError("Google sign-in is not configured.", 503, "GOOGLE_NOT_CONFIGURED");
   const state = crypto.randomBytes(16).toString("base64url");
   const verifier = crypto.randomBytes(32).toString("base64url");
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
@@ -151,22 +187,30 @@ export function googleStart(req) {
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: googleRedirectUri(req),
     response_type: "code",
-    scope: "openid email",
+    scope: "openid email profile",
     state,
     code_challenge: challenge,
     code_challenge_method: "S256",
     prompt: "select_account",
   }).toString();
   // Lax, so the cookie comes back on Google's top-level redirect to the callback.
-  const attempt = cookie(OAUTH_COOKIE, sign({ state, verifier, exp: Date.now() + OAUTH_STATE_MS }), {
+  const attempt = cookie(OAUTH_COOKIE, sign({ state, verifier, ret: returnView(returnTo), exp: Date.now() + OAUTH_STATE_MS }), {
     maxAge: OAUTH_STATE_MS / 1000, sameSite: "Lax", secure: isHttps(req), path: "/auth/google",
   });
   return { location: url.toString(), cookies: [attempt] };
 }
 
-/** Completes sign-in from Google's redirect. Returns { email, cookies } or throws AuthError. */
+/** The page view the current sign-in attempt should return to ("" when unknown). */
+export const oauthReturnTo = (req) => returnView(verify(parseCookies(req.headers.cookie)[OAUTH_COOKIE])?.ret);
+
+const clean = (value, max) => String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, max);
+
+/**
+ * Completes Google's redirect. Returns the verified Google profile ({ sub, email, name, picture })
+ * and the page view to return to, or throws AuthError. It does not sign anyone in by itself: the
+ * caller registers the person and then sets signInCookies().
+ */
 export async function googleCallback(req, url, { fetchImpl = fetch } = {}) {
-  const clearAttempt = cookie(OAUTH_COOKIE, "", { maxAge: 0, sameSite: "Lax", secure: isHttps(req), path: "/auth/google" });
   if (url.searchParams.get("error")) throw new AuthError(`Google sign-in was cancelled (${url.searchParams.get("error")}).`, 401, "GOOGLE_CANCELLED");
   const attempt = verify(parseCookies(req.headers.cookie)[OAUTH_COOKIE]);
   const state = url.searchParams.get("state");
@@ -202,8 +246,9 @@ export async function googleCallback(req, url, { fetchImpl = fetch } = {}) {
   }
   const email = String(claims.email ?? "").toLowerCase();
   if (!email || claims.email_verified !== true) throw new AuthError("Your Google address is not verified.", 403, "EMAIL_NOT_VERIFIED");
-  if (!superadminEmails().has(email)) throw new AuthError(`${email} is not a superadmin of this app.`, 403, "NOT_SUPERADMIN");
-  return { email, cookies: [clearAttempt, sessionCookie(req, email)] };
+  if (!claims.sub) throw new AuthError("Google's ID token has no account ID.", 401, "OAUTH_BAD_TOKEN");
+  const picture = /^https:\/\//.test(String(claims.picture ?? "")) ? clean(claims.picture, 500) : "";
+  return { profile: { sub: String(claims.sub), email, name: clean(claims.name, 120), picture }, returnTo: returnView(attempt.ret) };
 }
 
 export const clearOAuthCookie = (req) => cookie(OAUTH_COOKIE, "", { maxAge: 0, sameSite: "Lax", secure: isHttps(req), path: "/auth/google" });

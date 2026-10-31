@@ -1,0 +1,5 @@
+# Local settings for MY ASX Options (not committed). See .env.example.
+SUPERADMIN_PASSWORD=jub411
+ANTHROPIC_API_KEY=
+PORT=3000
+HOST=127.0.0.1

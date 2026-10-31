@@ -14,7 +14,7 @@ import {
 // Tells boot-check.js the module graph loaded (an import that fails stops this file running).
 window.__maoStarted = true;
 
-const VIEWS = ["overview", "confirmed", "upcoming", "takeaways", "settings", "admin"];
+const VIEWS = ["overview", "confirmed", "upcoming", "takeaways", "settings", "admin", "welcome"];
 const DETAILS_ITEM_ID = "contract-details"; // the saleable item that unlocks value/scope and sources
 const BRIEF_VIEWS = new Set(["overview", "confirmed", "upcoming"]);
 const STAGE_LABELS = {
@@ -146,6 +146,56 @@ async function loadCommerce() {
     state.commerce = null;
   }
   renderWallet();
+  renderAccount();
+}
+
+// ------------------------------------------------------------------ account
+
+const ROLE_LABELS = { supporter: "Supporter", admin: "Admin", superadmin: "Superadmin", super_admin: "Superadmin" };
+const roleLabel = (role) => ROLE_LABELS[role] ?? (role ? `${role[0].toUpperCase()}${role.slice(1)}` : "Supporter");
+
+/** Top right: "Register / Sign in" for visitors (when Google sign-in is set up), the account button once signed in. */
+function renderAccount() {
+  const user = state.commerce?.user ?? null;
+  $("#signin-btn").hidden = Boolean(user) || !state.commerce?.googleSignIn;
+  const account = $("#account-btn");
+  account.hidden = !user;
+  if (!user) return;
+  const name = user.name || user.email;
+  $("#account-initial").textContent = name.trim().charAt(0).toUpperCase();
+  $("#account-name").textContent = name.split(/\s+/)[0];
+  account.setAttribute("aria-label", `Your account: ${name}`);
+}
+
+function openAccount() {
+  const { user, admin } = state.commerce;
+  tokenDialog(
+    "Your account",
+    h(
+      "dl",
+      { class: "facts" },
+      fact("Name", user.name),
+      fact("Email", user.email),
+      fact("Role", roleLabel(user.role)),
+      admin ? fact("Access", "Superadmin of this app") : null,
+    ),
+    h("button", { class: "btn btn-ghost", type: "button", "data-sign-out": true, ...agent("btn_sign_out") }, "Sign out"),
+  );
+}
+
+async function signOut() {
+  try {
+    await api("POST", "/api/auth/logout", {});
+  } catch (err) {
+    return announce(err.message, "error");
+  }
+  if ($("#token-dialog").open) $("#token-dialog").close();
+  state.admin = null;
+  await loadCommerce();
+  await refreshStatus();
+  if (state.report) await loadReport(state.report.id);
+  if (state.view === "admin") renderAdmin();
+  announce("Signed out");
 }
 
 function tokenDialog(title, ...content) {
@@ -318,6 +368,8 @@ function renderNotices() {
   const r = state.report;
   const items = [];
   const status = state.status;
+  // A failed Google sign-in started outside the Superadmin panel (which shows its own).
+  if (state.authError && state.view !== "admin") items.push(notice("error", "i-alert", `Sign-in failed: ${state.authError}`));
   if (status?.storageWarning) items.push(notice("error", "i-alert", status.storageWarning));
   if (status?.error && !status.running) items.push(notice("error", "i-alert", `Last run failed: ${status.error}`));
   if (!r) {
@@ -412,14 +464,27 @@ function changeEl(pct, span = "latest session", title = "Latest session move (de
   );
 }
 
-/** ASX chips are buttons that open the price history; `where` keeps their agent ids unique. */
+/** Ticker chips are clickable buttons that open price history for both ASX and overseas listings. */
 function tickerChip(c, where) {
+  const isListed = Boolean(c.code) && (c.listing === "ASX" || c.listing === "Overseas");
   const m = c.listing === "ASX" ? marketOf(c.code) : null;
-  const title = c.note ?? (c.listing === "Unverified" ? "Not matched to a listed company" : c.listing === "ASX" ? `Price history${m?.price ? ` · last ${fmtPrice(m.price)}` : ""}` : null);
-  const asx = c.listing === "ASX";
+  const title = c.note ?? (c.listing === "Unverified" ? "Not matched to a listed company" : isListed ? `Price history${m?.price ? ` · last ${fmtPrice(m.price)}` : ""}` : null);
   return h(
-    asx ? "button" : "span",
-    { class: `ticker${asx ? " ticker-btn" : ""}`, "data-listing": c.listing, title, ...(asx ? { type: "button", "data-price": c.code, "aria-haspopup": "dialog", ...agent(`btn_price_${where}_${c.code}`) } : {}) },
+    isListed ? "button" : "span",
+    {
+      class: `ticker${isListed ? " ticker-btn" : ""}`,
+      "data-listing": c.listing,
+      title,
+      ...(isListed
+        ? {
+            type: "button",
+            "data-price": c.code,
+            ...(c.exchange ? { "data-exchange": c.exchange } : {}),
+            "aria-haspopup": "dialog",
+            ...agent(`btn_price_${where}_${c.code}`),
+          }
+        : {}),
+    },
     h("span", { class: "ticker-code" }, tickerLabel(c, true)),
     m && Number.isFinite(m.changePct) ? changeEl(m.changePct) : null,
     m?.options?.available ? h("span", { class: "opt-badge", title: "Exchange-traded options are listed on this stock" }, "Options") : null,
@@ -998,7 +1063,7 @@ function renderAdmin() {
           h("h3", { class: "card-title", id: "admin-google-title" }, "Superadmin sign-in"),
           h("p", { class: "card-sub" }, "Sign in with the Google account that is listed as superadmin."),
           authError,
-          h("a", { class: "btn btn-primary", href: "/auth/google", ...agent("btn_admin_google_sign_in") }, icon("i-shield"), "Sign in with Google"),
+          h("a", { class: "btn btn-primary", href: "/auth/google?return=admin", ...agent("btn_admin_google_sign_in") }, icon("i-shield"), "Sign in with Google"),
         ),
       );
       return;
@@ -1257,7 +1322,7 @@ function renderStatus() {
   if (s.storage === "firestore") $("#settings-sub").textContent = "Saved in the cloud (Firestore) and shared by everyone using this app. Changes apply from the next report.";
   if (s.schedule?.kind === "cron") {
     $("#schedule-note").textContent = "Daily report: 6–7 pm Sydney";
-    $("#schedule-hint").textContent = `${s.schedule.note} The time setting below applies only when the app runs on your own computer.`;
+    $("#schedule-hint").textContent = `${s.schedule.note} The time setting below applies only when the app runs on your own computer with its own data/ folder.`;
   } else {
     const next = s.nextScheduled ? `Next scheduled report: ${fmtDateTime(s.nextScheduled)}` : "Daily schedule is off";
     $("#schedule-note").textContent = next;
@@ -1528,16 +1593,18 @@ function priceTable(points, currency, period) {
 
 function renderPrice() {
   const code = state.priceCode;
+  const exchange = state.priceExchange;
   const data = state.history[code];
   const body = $("#price-body");
-  $("#price-title").textContent = `ASX: ${code}`;
+  const displayLabel = exchange ? `${exchange}: ${code}` : `ASX: ${code}`;
+  $("#price-title").textContent = displayLabel;
   $("#price-eyebrow").textContent = data?.name ?? marketOf(code)?.name ?? "Price history";
   body.setAttribute("aria-busy", String(!data));
   if (!data) return body.replaceChildren(h("p", { class: "muted", role: "status" }, "Loading price history…"));
   if (data.error) {
     return body.replaceChildren(
       h("p", { class: "notice notice-error", role: "alert" }, data.error),
-      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", "data-price": code, ...agent("btn_price_retry") }, "Try again")),
+      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", "data-price": code, ...(exchange ? { "data-exchange": exchange } : {}), ...agent("btn_price_retry") }, "Try again")),
     );
   }
   const period = PERIODS.find((p) => p.id === state.pricePeriod) ?? PERIODS[1];
@@ -1572,9 +1639,9 @@ function renderPrice() {
       );
     }),
   );
-  const fxNote = data.fx
-    ? `Prices in ${data.currency} for your location, converted from AUD at 1 AUD = ${data.fx.rate} ${data.currency} (ECB rate, ${fmtDate(data.fx.date)}).`
-    : `Prices in AUD.${data.fxError ? ` ${data.fxError}` : ""}`;
+  const fxNote = data.fx && data.fx.source !== "1:1"
+    ? `Prices converted to ${data.currency} at 1 ${data.nativeCurrency || "AUD"} = ${data.fx.rate} ${data.currency} (${data.fx.source}, ${fmtDate(data.fx.date)}).`
+    : `Prices in ${data.currency}.${data.fxError ? ` ${data.fxError}` : ""}`;
   body.replaceChildren(
     h("p", { class: "price-last" }, h("strong", {}, fmtLocal(last.close, data.currency)), h("span", { class: "cell-sub" }, `Close ${fmtDateLong(last.date)}`)),
     seg,
@@ -1592,15 +1659,17 @@ function renderPrice() {
   );
 }
 
-async function openPrice(code) {
+async function openPrice(code, exchange = null) {
   state.priceCode = code;
+  state.priceExchange = exchange;
   if (state.history[code]?.error) delete state.history[code];
   renderPrice();
   const dialog = $("#price-dialog");
   if (!dialog.open) dialog.showModal();
   if (state.history[code]) return;
   try {
-    state.history[code] = await track(api("GET", `/api/history/${encodeURIComponent(code)}`));
+    const query = exchange ? `?exchange=${encodeURIComponent(exchange)}` : "";
+    state.history[code] = await track(api("GET", `/api/history/${encodeURIComponent(code)}${query}`));
   } catch (err) {
     state.history[code] = { error: err instanceof ApiError ? err.message : "Price history is unavailable right now." };
   }
@@ -1618,7 +1687,7 @@ function bindEvents() {
       return;
     }
     const price = event.target.closest("[data-price]");
-    if (price) return openPrice(price.dataset.price);
+    if (price) return openPrice(price.dataset.price, price.dataset.exchange);
     if (event.target.closest("[data-close-price]")) return $("#price-dialog").close();
     const open = event.target.closest("[data-open]");
     if (open) return openDetail(open.dataset.open);
@@ -1647,6 +1716,7 @@ function bindEvents() {
       return confirmUnlock(confirmBtn.dataset.confirmUnlock);
     }
     if (event.target.closest("[data-open-wallet]")) return openWallet();
+    if (event.target.closest("[data-sign-out]")) return signOut();
     if (event.target.closest("[data-close-token]")) $("#token-dialog").close();
   });
 
@@ -1656,6 +1726,11 @@ function bindEvents() {
     });
   }
   $("#wallet-btn").addEventListener("click", openWallet);
+  $("#account-btn").addEventListener("click", openAccount);
+  // Come back to the same view after Google sign-in.
+  $("#signin-btn").addEventListener("click", (event) => {
+    event.currentTarget.href = `/auth/google?return=${encodeURIComponent(state.view)}`;
+  });
   // Re-fit an open popup when the screen changes (rotation, window resize, foldables).
   addEventListener("resize", () => {
     if ($("#detail").open) fitDialog($("#detail-body"), detailFit.pagers);

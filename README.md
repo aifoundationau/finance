@@ -40,6 +40,14 @@ The pipeline then:
 - **Resolves companies** against the live ASX company list plus a curated table of subsidiaries and overseas primes (`src/data/aliases.js`). For example, "Austal Ships Pty Ltd" maps to ASX: ASB and "Leidos Australia" to NYSE: LDOS. "Aspen Medical" is *not* matched to Aspen Group.
 - **Merges duplicates** across syndications and sources, keeping every source link.
 
+## Accounts
+
+With `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` set, a **Register / Sign in** button appears at the top right. Anyone with a verified Google address can use it. The first sign-in registers the person with the role **supporter**. Later sign-ins never change a role, so a role given elsewhere is kept.
+
+- **With Firestore**, people join the shared AI Foundation directory, so they are the same user in every AI Foundation app. This app finds their Firebase Auth account by Google ID or email. If there is none, it creates one and links it to their Google account. It then writes the `users/{uid}` profile in the project's `(default)` database, in the shape the other apps use, with `registeredVia: "my-asx-options"`.
+- **Without Firestore**, accounts are kept in `data/users.json`.
+- Once signed in, the button shows the person's name. It opens their account (name, email, role) and **Sign out**.
+
 ## Tokens and the Superadmin panel
 
 The app follows the workspace's token-economy rule (`.agents/rules/token-economy.md`).
@@ -48,7 +56,7 @@ The app follows the workspace's token-economy rule (`.agents/rules/token-economy
 - **Enforced on the server:** locked fields are removed from the API, the Markdown and CSV exports, and the raw AI write-up, not just hidden in the page.
 - **Visitors see tokens only:** a token icon and a whole-number amount. Hovering (or focusing) the amount shows the dollar price in enabled currencies.
 - **Currencies:** AUD shows only to visitors in Australia; USD follows its own toggle. Behind a CDN, set `GEO_COUNTRY_HEADER` (e.g. `cf-ipcountry`); otherwise the browser's time zone and language decide.
-- **Superadmin panel:** open **Settings → Open Superadmin panel** (or `/#admin`). Sign in with Google when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SUPERADMIN_EMAILS` are set (only the listed, Google-verified addresses get in); otherwise with `SUPERADMIN_PASSWORD` from `.env`. From there you can:
+- **Superadmin panel:** open **Settings → Open Superadmin panel** (or `/#admin`). When Google sign-in and `SUPERADMIN_EMAILS` are set up, a Google sign-in with a listed, verified address opens it, from the panel or from the top-right button. Other accounts sign in as ordinary users. Without `SUPERADMIN_EMAILS`, the panel uses `SUPERADMIN_PASSWORD` from `.env`. From there you can:
   - switch the token system, AUD and USD on or off independently
   - set whole-dollar token prices
   - create, edit, deactivate and delete saleable items
@@ -84,18 +92,18 @@ Add `--ai` after the script path for AI reports. Reports are saved in `data/repo
 
 On Vercel the app runs as a serverless function, which changes three things:
 
-- **Storage:** the file system is read-only, so data goes to **Cloud Firestore** (`FIREBASE_SERVICE_ACCOUNT`). Collections are prefixed `myAsxOptions_` so they can share a Firebase project. Without it the page loads but nothing can be saved, and a red notice says so.
+- **Storage:** the file system is read-only, so data goes to **Cloud Firestore** (`FIREBASE_SERVICE_ACCOUNT`), in the app's own `finance` database (`FIRESTORE_DATABASE_ID=finance`), whose rules deny all browser access. Collections are prefixed `myAsxOptions_`. To move data between databases: `node scripts/copy-firestore.js "(default)" finance`. Without it the page loads but nothing can be saved, and a red notice says so.
 - **Schedule:** Vercel Cron calls `/api/cron/daily` once a day (`vercel.json`, `0 7 * * *` UTC: 6–7 pm Sydney in daylight time, 5–6 pm in winter). The Settings time applies only when you run the app yourself.
 - **Access:** settings and report runs need the superadmin, because the site is public and AI runs cost money. Visitors can read the brief.
 
 Steps:
 
 1. **Firestore key.** Firebase console → project `ai-foundation-firebase` → Project settings → Service accounts → **Generate new private key**. Put the JSON, on one line, in `FIREBASE_SERVICE_ACCOUNT`. If your organisation blocks key creation, an administrator must allow it for this project.
-2. **Google sign-in.** Google Cloud console → APIs & Services → Credentials → the existing OAuth client → **Authorised redirect URIs**: add `https://<your-production-domain>/auth/google/callback` (and `http://localhost:3000/auth/google/callback` to use Google sign-in locally). Don't create a new client.
+2. **Google sign-in.** Google Cloud console → APIs & Services → Credentials → the existing OAuth client → **Authorised redirect URIs**: add `https://<your-production-domain>/auth/google/callback` (and `http://localhost:3000/auth/google/callback` to use Google sign-in locally; open the app at `localhost`, not `127.0.0.1`, so the redirect matches). Don't create a new client.
 3. **Environment variables.** Vercel → Project → Settings → Environment Variables: paste `.env.production` (kept out of git), then fill in `GOOGLE_CLIENT_SECRET` and `FIREBASE_SERVICE_ACCOUNT`.
 4. **Deploy**, open the production domain, sign in under **Superadmin**, and press **Refresh** for the first report. If Vercel asks you to log in before showing the site, that's *Deployment Protection* (Project → Settings → Deployment Protection).
 
-To use Firestore from your own computer instead of `data/`, run `gcloud auth application-default login` and set `FIREBASE_SERVICE_ACCOUNT=adc` in `.env`.
+To use Firestore from your own computer instead of `data/`, run `gcloud auth application-default login` and set `FIREBASE_SERVICE_ACCOUNT=adc` in `.env`. The local app then shows and edits the same reports, settings and wallets as the deployment, and leaves the daily report to its Vercel Cron (no startup or scheduled runs on your computer; **Refresh** still works).
 
 ## Using the app
 
@@ -150,9 +158,12 @@ src/sources/            AusTender, ASX announcements and directory, news, open t
 src/lib/                classifier, entity resolver, dedupe, takeaways, Markdown/CSV, PDF, RSS
 src/data/               government agencies, supplier aliases, UNSPSC categories
 src/ai/                 AI analyst (Anthropic SDK) and the brief
-src/commerce.js, src/admin.js, src/idempotency.js   tokens, superadmin sessions, idempotency store
+src/commerce.js, src/admin.js, src/idempotency.js   tokens, sign-in and sessions, idempotency store
+src/users.js                                        registration (shared AI Foundation users or data/users.json)
 public/shared/          JSON Schemas, schema validator and retry policy (used by server and browser)
 public/                 the responsive front end (no build step): app.js, js/ (DOM, API, schema forms), agent-driver.js
+public/*.html, legal.css  Privacy Policy, Terms of Service, AI Policy (ISO/IEC 42001) and Token Policy, linked from the
+                        footer on every page with the copyright and Founder Welcome (test/legal-pages.test.js keeps them there)
 data/                   reports, caches and settings (created at runtime)
 ```
 

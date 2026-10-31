@@ -1,0 +1,122 @@
+# ANTIGRAVITY MISSION: Token-Gated Australian Procurement, Grants & ASX Intelligence Engine
+
+## ROLE & OBJECTIVE
+You are a Lead Systems Architect and Financial Data Engineer. Your mission is to scour Australian federal/state procurement portals, corporate grant databases, business registries, and stock market forecasting APIs to build a production-grade data ingestion, entity-resolution, and **token-gated intelligence platform**.
+
+Users browse live intelligence feeds for free via rich previews, but must spend platform tokens to unlock the **Winning Entity Identity & Actionable AI Dossier**.
+
+Do NOT write placeholder or mock URLs. You must use your Browser and Terminal (`curl` / Node fetch) tools to actively verify live API endpoints, inspect real JSON/XML payloads, and document exact data contracts before scaffolding the application code.
+
+---
+
+## GLOBAL ENVIRONMENT, SECURITY & PAYWALL RULES
+1. **Strict Environment Isolation:** Store all public and secret API keys, GUIDs, and service credentials strictly in a `.env` file. Never hardcode credentials in source files.
+2. **Git Hygiene:** Immediately create or update `.gitignore` to ensure `.env`, `.env.*`, `node_modules/`, and local cache directories are excluded from version control.
+3. **Zero-Leak Server-Side Redaction (CRITICAL):** Never rely on frontend CSS blurring (`filter: blur()`) to hide token-gated data. Unauthenticated or unpaid requests must have gated fields physically stripped from the JSON payload on the server before the response leaves the API route.
+4. **Anti-Reverse-Lookup Protection:** In the free preview payload, never expose the raw `NoticeID` (e.g., AusTender CN ID) or the verbatim government tender title, as users could copy-paste those strings into Google to identify the winner for free. Instead, serve an AI-paraphrased scope summary in the preview and lock the exact `NoticeID` and source URL inside the token-gated vault.
+5. **Server-Side Caching:** Implement SHA-256 query hashing with a 24-hour TTL cache in the database to prevent external API quota exhaustion.
+6. **Strict Schema Validation:** Use TypeScript and Zod to validate all external API payloads and enforce separate `PublicTeaserSchema` vs. `UnlockedVaultSchema` data contracts.
+7. **Minimal Command UI:** Anchor the interface around a universal `Ctrl+K` command/search bar to filter live previews by sector, contract value, agency, or market signal without nested dropdown menus, paired with a header token balance indicator and instant 1-click token unlock modals.
+
+---
+
+## PHASE 1: DEEP WEB SCOURING & LIVE ENDPOINT VERIFICATION
+Use your Browser tool and Terminal (`curl`) to scour, test, and extract exact schemas from the following sources. If a primary portal blocks direct REST calls or lacks a documented endpoint, find its underlying CKAN data store, RSS/Atom feed, bulk CSV/JSON resource URL, or OpenAPI specification.
+
+### 1. Federal Contracts & Tenders
+* **AusTender OCDS API:**
+  - Scour `https://github.com/austender/austender-ocds-api` and the AusTender Swagger Hub.
+  - Verify endpoints for querying Contract Notices (CN) by date range (`Notice Published Date`, `Start Date`, `Latest Modified Date`).
+  - Extract the exact Open Contracting Data Standard (OCDS) JSON path for: `ocid`, `awards[].suppliers[].name`, `awards[].suppliers[].identifier.id` (ABN), `awards[].value.amount`, and `buyer.name`.
+
+### 2. Federal & State Grants to Business
+* **data.gov.au CKAN Action API & GrantConnect:**
+  - Query `https://data.gov.au/data/api/3/action/package_search?q=grantconnect` and `q=grants` via terminal `curl` to discover live machine-readable datasets of federal and state grant awards.
+  - Inspect `package_show` and `datastore_search` endpoints to identify how recipient business names, ABNs, grant programs, and dollar amounts are structured.
+* **State Procurement & Tenders Portals:**
+  - **NSW:** Scour `https://api.nsw.gov.au` and `tenders.nsw.gov.au` for the NSW eTendering Open Data API (OCDS release endpoints for contract disclosures and standing offers).
+  - **QLD, VIC, WA, SA:** Scour `data.qld.gov.au`, `data.vic.gov.au`, and `data.wa.gov.au` using their CKAN APIs (`/api/3/action/package_search?q=contracts` or `q=tenders`) to locate automated contract award disclosure datasets from QTenders, Buying for Victoria, and Tenders WA.
+  - **Commercial Aggregators (Optional Webhook/API Layer):** Document integration specs for **Australian Tenders** (`info.australiantenders.com.au/help/integrations`) and **PollenOne** for unified state/local government coverage.
+
+### 3. Entity Resolution (Linking ABN to ASX Tickers)
+* **Australian Business Register (ABR) JSON Lookup:**
+  - Scour `https://abr.business.gov.au/json/` and inspect the JSONP/JSON endpoints:
+    - ABN Lookup: `AbnDetails.aspx?abn={ABN}&guid={ABR_GUID}`
+    - ACN Lookup: `AcnDetails.aspx?acn={ACN}&guid={ABR_GUID}`
+    - Name Lookup: `MatchingNames.aspx?name={COMPANY_NAME}&guid={ABR_GUID}`
+* **ASX Listed Companies Directory:**
+  - Locate a reliable public CSV/JSON feed of all active ASX-listed companies (Company Name, ASX Ticker `.AX`, GICS Industry Group, and ABN/ACN) to build an automated cross-reference lookup table.
+
+### 4. Australian & International Market Forecasting
+* **Macroeconomic & Industry Forecasting (Free Government APIs):**
+  - **ABS Data API (SDMX-JSON):** Scour `https://www.abs.gov.au/statistics/application-programming-interfaces-apis` and test `https://data.api.abs.gov.au/rest/` for macroeconomic indicators, Capex expectations, and industry growth rates.
+  - **RBA Statistical Tables:** Identify machine-readable feeds from `rba.gov.au/statistics/tables/` for interest rate forecasts, inflation, and business credit growth.
+* **ASX & Global Stock Exchange Data + Analyst Consensus:**
+  - Scour and compare developer documentation for:
+    1. **EODHD (`eodhd.com`):** `.AU` / `.AX` ticker fundamentals, institutional holders, earnings trends, historical OHLCV, and MCP server capabilities.
+    2. **Financial Modeling Prep (FMP) & Alpha Vantage:** Endpoints for analyst price targets, earnings estimates, upgrades/downgrades, and international supply-chain peer comparisons.
+    3. **ASX Announcements Feed:** Scour methods to ingest price-sensitive ASX company announcements (where big businesses disclose material government contract wins before they hit AusTender).
+
+---
+
+## PHASE 2: GENERATE `DATA_SOURCES.md`
+Before writing application code, compile your findings from Phase 1 into a comprehensive `DATA_SOURCES.md` file in the project root. For every single source, include:
+1. **Provider Name & Coverage** (Federal, State, Macro, or Equity).
+2. **Verified Base URL & Exact Endpoints** (tested via `curl`).
+3. **Authentication Method** (None, `.env` API Key, OAuth2, or GUID).
+4. **Rate Limits & Licensing Rules** (CC BY 4.0 vs. Commercial Exchange Redistribution).
+5. **Sample Raw JSON/CSV Payload** (captured from your live test queries).
+6. **Fallback Strategy** (e.g., if live API fails, fall back to CKAN datastore SQL query or RSS parser).
+
+---
+
+## PHASE 3: ARCHITECT THE TOKEN-GATED INGESTION & REDACTION ENGINE
+Once `DATA_SOURCES.md` is complete, scaffold the backend architecture:
+
+### 1. Environment & Config (`.env.example` & `.gitignore`)
+Define required keys: `ABR_API_GUID`, `NSW_ETENDERING_API_KEY`, `EODHD_API_KEY`, `FMP_API_KEY`, `GEMINI_API_KEY`, plus database/auth credentials.
+
+### 2. Dual-Tier Zod Data Contracts (`/src/lib/schemas/intelligenceSchema.ts`)
+Create a strict split between what the public sees for free and what is stored in the locked vault:
+* **`PublicTeaserSchema` (0 Tokens - Sent to Public Feed):**
+  - `intelligenceId`: Internal UUID.
+  - `awardType`: `"FEDERAL_CONTRACT" | "STATE_CONTRACT" | "CORPORATE_GRANT" | "ASX_CATALYST"`.
+  - `ExactValueAUD`: Exact dollar figure won (e.g., `$4,850,000 AUD`) — shown in full to build high desire.
+  - `BuyerAgency`: Issuing government department (e.g., `"Department of Defence"` or `"QLD Transport and Main Roads"`).
+  - `AwardDate` & `StateLocation`: When and where the capital was deployed.
+  - `Sector & EntityTier`: e.g., `"ASX Small-Cap Industrials (Market Cap $150M-$300M)"` or `"Private Enterprise - Logistics & Freight"`.
+  - `AnonymizedScopeSummary`: AI-rewritten 2-sentence summary of what the contract/grant covers (scrubbed of company names and verbatim tender titles to prevent Google reverse-searching).
+  - `SignalMetrics`: e.g., `ContractToMarketCapRatio: "8.4%"`, `BullishForecastScore: 91`, `SubcontractingUrgency: "HIGH"`.
+  - `tokenCost`: Integer (e.g., `1` token for SME contract lead, `3` tokens for full ASX Alpha & Institutional Forecast Dossier).
+* **`UnlockedVaultSchema` (Requires Token Burn - Stored in Restricted Collection):**
+  - `SupplierLegalName` & `TradingNames`: The exact winning company identity.
+  - `ABN` & `ACN`: Verified Australian Business Register identifiers.
+  - `ASXTicker` & `ParentCompany`: e.g., `"XYZ.AX"` and corporate subsidiary tree.
+  - `OfficialNoticeID` & `SourcePortalURL`: Direct link to the AusTender/GrantConnect/State disclosure record.
+  - `MarketForecastDossier`: Current share price, 12-month analyst consensus price target, earnings impact model, and international peer comparison.
+  - `B2BLeadPlaybook`: AI-generated outreach angle, key operational bottlenecks this contract creates for the winner (e.g., staffing, software, logistics, compliance), and recommended decision-maker roles to target.
+
+### 3. Modular Ingestion & Entity Services (`/src/lib/services/`)
+* `procurementCollector.ts`: Fetches AusTender OCDS releases, NSW eTendering API, and State CKAN contract datasets. Filters for high-value awards (>$100,000 AUD).
+* `grantsCollector.ts`: Queries `data.gov.au` CKAN `datastore_search` for GrantConnect and state corporate grant allocations.
+* `entityResolver.ts`: Resolves winning contractor ABNs against the ABR API and matches public parent companies (`.AX`) or high-growth private businesses.
+* `marketForecaster.ts`: Pulls `.AX` and global peer equity data + ABS macro indicators, using 24-hour SHA-256 request caching.
+* `teaserGenerator.ts`: Uses Gemini during ingestion to generate the `AnonymizedScopeSummary` (scrubbing identifying entity nouns) alongside the locked `MarketForecastDossier` and `B2BLeadPlaybook`.
+
+### 4. Atomic Token Ledger & Unlock API (`/src/app/api/intelligence/`)
+* `GET /api/intelligence/feed`: Returns strictly `PublicTeaserSchema[]` items. If a logged-in user has already unlocked specific `intelligenceId` records, merge those unlocked fields for that user only.
+* `POST /api/intelligence/unlock`:
+  - Verifies user authentication on the server.
+  - Checks if the user has already unlocked `intelligenceId` (idempotent—never double-charge for the same record).
+  - Executes an **atomic database transaction**: checks `user.tokenBalance >= item.tokenCost`, deducts `tokenCost`, writes an immutable audit log to `token_transactions` (`userId`, `intelligenceId`, `tokensSpent`, `timestamp`), grants permanent read access to that record for the user, and returns the full `UnlockedVaultSchema` payload.
+
+---
+
+## PHASE 4: COMMAND-DRIVEN PREVIEW & UNLOCK UI
+Build a sleek, high-contrast intelligence terminal UI:
+1. **Universal `Ctrl+K` Command Bar:** Instant keyboard-driven filtering across live teasers (e.g., type `> $1M`, `Defence`, `QLD`, `ASX`, or `Grants`).
+2. **Teaser Intelligence Cards:** Display the real dollar amount, issuing agency, sector tier, and AI opportunity score prominently. Where the **Winning Company Name, ABN, ASX Ticker, and AI Dossier** belong, render a high-conversion locked vault badge (`[ 🔒 UNLOCK WINNER IDENTITY, ABN/ASX TICKER & AI DOSSIER — 1 TOKEN ]`).
+3. **Instant In-Place Reveal:** Clicking the unlock button triggers `/api/intelligence/unlock`, animates the token balance deduction in the top bar, and swaps the redacted block with the full company identity, ASX chart metrics, and downloadable B2B/Investor dossier without reloading the page.
+
+## EXECUTION ORDER
+Start immediately with **Phase 1**. Run live terminal `curl` tests against `data.gov.au`, `austender`, `abs.gov.au`, and `abr.business.gov.au` to prove connectivity, generate `DATA_SOURCES.md` in **Phase 2**, and then build the server-side redaction and token ledger pipeline in **Phase 3 & 4**.

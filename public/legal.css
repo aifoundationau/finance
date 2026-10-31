@@ -1,0 +1,207 @@
+/* The policy pages (privacy, terms, AI policy, token policy): the app's colours in light and dark,
+   readable on a 240px phone, and black on white when printed. */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f2;
+  --card: #fcfcfb;
+  --ink: #0b0b0b;
+  --muted: #67655f;
+  --line: #e1e0d9;
+  --accent: #2a78d6;
+  --link: #1c5cab;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    --bg: #0d0d0d;
+    --card: #1a1a19;
+    --ink: #f0efec;
+    --muted: #a09e95;
+    --line: #2c2c2a;
+    --link: #86b6ef;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d0d0d;
+  --card: #1a1a19;
+  --ink: #f0efec;
+  --muted: #a09e95;
+  --line: #2c2c2a;
+  --link: #86b6ef;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+}
+a {
+  color: var(--link);
+  text-underline-offset: 3px;
+}
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+}
+
+.site-header,
+.site-footer {
+  background: var(--card);
+  border-color: var(--line);
+  border-style: solid;
+  border-width: 0;
+}
+.site-header {
+  border-bottom-width: 1px;
+}
+.site-footer {
+  border-top-width: 1px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.inner,
+main {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+}
+.site-header .inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-block: 0.85rem;
+}
+.brand {
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+.back-link {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.site-footer .inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.1rem;
+  padding-block: 1.1rem 1.5rem;
+}
+
+main {
+  padding-block: 2rem 3rem;
+}
+h1 {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  line-height: 1.2;
+}
+.updated {
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.intro,
+nav.contents {
+  margin: 0 0 1.75rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+.intro {
+  border-left: 4px solid var(--accent);
+}
+nav.contents h2 {
+  margin: 0 0 0.3rem;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+nav.contents ol {
+  margin: 0;
+  padding-left: 1.4rem;
+  columns: 2 15rem;
+  column-gap: 1.75rem;
+}
+nav.contents li {
+  margin: 0.1rem 0;
+  break-inside: avoid;
+  font-size: 0.95rem;
+}
+section {
+  scroll-margin-top: 1rem;
+}
+h2 {
+  margin: 2.25rem 0 0.6rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+  font-size: clamp(1.2rem, 4.5vw, 1.5rem);
+  line-height: 1.3;
+}
+h3 {
+  margin: 1.4rem 0 0.35rem;
+  font-size: 1.1rem;
+}
+ul,
+ol {
+  padding-left: 1.5rem;
+}
+li {
+  margin: 0.35rem 0;
+}
+.example {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+
+@media print {
+  :root {
+    --bg: #fff;
+    --card: #fff;
+    --ink: #000;
+    --muted: #333;
+    --line: #bbb;
+    --link: #000;
+  }
+  body {
+    font-size: 11pt;
+  }
+  .site-header,
+  .site-footer,
+  .skip-link,
+  nav.contents {
+    display: none;
+  }
+}

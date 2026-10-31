@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>AI Policy - MY ASX Options</title>
+  <meta name="description" content="How MY ASX Options uses and oversees AI, following ISO/IEC 42001:2023.">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/legal.css">
+  <script src="/theme.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to the policy</a>
+
+  <header class="site-header">
+    <div class="inner">
+      <a class="brand" href="/">MY ASX Options</a>
+      <a class="back-link" href="/">&larr; Back to MY ASX Options</a>
+    </div>
+  </header>
+
+  <main id="content">
+    <h1>AI Policy</h1>
+    <p class="updated">Following ISO/IEC 42001:2023 &middot; Last updated: <time datetime="2026-10-31">31 October 2026</time></p>
+
+    <div class="intro">
+      <p><strong>Our standards status.</strong> MY ASX Options follows the practices of ISO/IEC 42001:2023, <em>Information technology &mdash; Artificial intelligence &mdash; Management system</em>, the international standard for managing AI responsibly. We're <strong>not certified</strong> to this standard: no certification body has audited us against it. We use it as the framework for how we use and oversee AI, as this policy describes.</p>
+      <p>We welcome feedback: email <a href="mailto:support@aifoundation.net.au">support@aifoundation.net.au</a>.</p>
+    </div>
+
+    <nav class="contents" aria-label="Contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#scope">Purpose and scope</a></li>
+        <li><a href="#commitments">Our commitments</a></li>
+        <li><a href="#where">Where MY ASX Options uses AI</a></li>
+        <li><a href="#oversight">Human oversight</a></li>
+        <li><a href="#accuracy">Accuracy and market information</a></li>
+        <li><a href="#data">Data and privacy</a></li>
+        <li><a href="#risk">Risks and impacts</a></li>
+        <li><a href="#lifecycle">Building, testing and monitoring</a></li>
+        <li><a href="#transparency">Transparency</a></li>
+        <li><a href="#suppliers">AI suppliers</a></li>
+        <li><a href="#roles">Roles and responsibilities</a></li>
+        <li><a href="#concerns">Concerns, incidents and feedback</a></li>
+        <li><a href="#standard">How we follow ISO/IEC 42001</a></li>
+        <li><a href="#review">Reviewing this policy</a></li>
+        <li><a href="#contact">Contact us</a></li>
+      </ol>
+    </nav>
+
+    <section id="scope">
+      <h2>1. Purpose and scope</h2>
+      <p>This policy sets out how AI Foundation, which runs MY ASX Options, uses and oversees artificial intelligence (AI). It's our AI policy under ISO/IEC 42001:2023, and it applies to every AI feature in MY ASX Options, to everyone who builds or runs it, and to the suppliers whose AI services we use.</p>
+      <p>It sits alongside our <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms of Service</a>.</p>
+    </section>
+
+    <section id="commitments">
+      <h2>2. Our commitments</h2>
+      <p>We commit to:</p>
+      <ul>
+        <li><strong>inform, not advise</strong>: AI helps put together general information; it never gives anyone financial advice or makes decisions for them;</li>
+        <li><strong>be accurate</strong>, and check AI output against official sources where we can;</li>
+        <li><strong>be open</strong> about where and how we use AI;</li>
+        <li><strong>protect privacy</strong>, by keeping information about our users away from AI;</li>
+        <li><strong>meet our legal obligations</strong>, including Australian privacy and consumer law;</li>
+        <li><strong>manage AI risks and impacts</strong> through each feature's whole life; and</li>
+        <li><strong>keep improving</strong>, by learning from feedback, incidents and reviews.</li>
+      </ul>
+      <p>We also follow Australia's AI Ethics Principles.</p>
+    </section>
+
+    <section id="where">
+      <h2>3. Where MY ASX Options uses AI</h2>
+      <p>MY ASX Options has one AI feature: the <strong>AI analyst</strong>. It uses Anthropic's Claude, called from our servers and never from your browser, in two steps:</p>
+      <ul>
+        <li><strong>Research.</strong> With web search, it looks for Australian government contracts confirmed in the past 7 days and decisions expected in the next 7, starting from the leads our rule-based sources found, and writes the brief with links to its sources.</li>
+        <li><strong>Structure.</strong> It turns that write-up into the brief's fixed structure: confirmed contracts, upcoming decisions and key takeaways.</li>
+      </ul>
+      <p>The AI analyst runs only when our administrator starts it, or switches it on for the daily brief. It's off by default. Otherwise the brief is made by rules, without AI.</p>
+      <p>We don't use AI to make decisions about people, or to give financial advice.</p>
+    </section>
+
+    <section id="oversight">
+      <h2>4. Human oversight</h2>
+      <ul>
+        <li>Our administrator decides when the AI analyst runs, and how many web searches it may make.</li>
+        <li>Every brief shows whether it was written by the AI analyst or by rules, and links to its sources so anyone can check it.</li>
+        <li>Anyone can report a mistake in a brief, and a person will look at it.</li>
+      </ul>
+    </section>
+
+    <section id="accuracy">
+      <h2>5. Accuracy and market information</h2>
+      <p>People may make trading decisions after reading the brief, so accuracy matters most.</p>
+      <ul>
+        <li>ASX codes the AI suggests are checked against the official list of ASX-listed companies, and that list wins over the AI.</li>
+        <li>A brief that doesn't match the required structure is never published.</li>
+        <li>The brief separates confirmed contracts from expected decisions and speculation.</li>
+        <li>Every page of MY ASX Options reminds readers that the brief is general information, not financial advice, and that they should check the linked source before acting.</li>
+      </ul>
+    </section>
+
+    <section id="data">
+      <h2>6. Data and privacy</h2>
+      <ul>
+        <li>The AI analyst receives the date, the 14-day window and leads from public news and announcements. It never receives our users' names, email addresses, accounts or token records.</li>
+        <li>We don't train AI models with information about our users.</li>
+        <li>Personal information is handled under our <a href="/privacy.html">Privacy Policy</a>.</li>
+      </ul>
+    </section>
+
+    <section id="risk">
+      <h2>7. Risks and impacts</h2>
+      <p>Before we release an AI feature, and whenever we change one significantly, we assess:</p>
+      <ul>
+        <li><strong>the risks</strong>, such as AI describing a contract that doesn't exist, linking a contract to the wrong company, getting a value or date wrong, over-reliance on the brief, and failures of the AI service;</li>
+        <li><strong>the impacts</strong> on the people affected, including readers who trade, the companies named and the wider market; and</li>
+        <li><strong>the controls</strong> that reduce those risks to an acceptable level, such as the checks in this policy.</li>
+      </ul>
+      <p>We record our assessments, and review them when something changes.</p>
+    </section>
+
+    <section id="lifecycle">
+      <h2>8. Building, testing and monitoring</h2>
+      <ul>
+        <li>The AI analyst has a defined purpose, inputs and outputs, and a limit on the number of web searches for each brief.</li>
+        <li>We test it with automated tests, including tests of how its answers are checked and structured.</li>
+        <li>If the AI service declines a request or fails, the brief isn't published from it, and the error is recorded.</li>
+        <li>We record each AI brief's sources, its number of searches and its estimated cost.</li>
+        <li>Our AI instructions and code are kept in version control, so every change is tracked.</li>
+      </ul>
+    </section>
+
+    <section id="transparency">
+      <h2>9. Transparency</h2>
+      <ul>
+        <li>We tell you where we use AI, in this policy, in our <a href="/privacy.html">Privacy Policy</a> and on each brief the AI analyst writes.</li>
+        <li>AI briefs show their sources.</li>
+        <li>If an AI incident affects you, we'll tell you.</li>
+      </ul>
+    </section>
+
+    <section id="suppliers">
+      <h2>10. AI suppliers</h2>
+      <ul>
+        <li>We use Anthropic's Claude. We choose AI suppliers with strong security and privacy commitments, and review their terms when they change.</li>
+        <li>We remain responsible for how MY ASX Options uses AI, whichever service powers it.</li>
+      </ul>
+    </section>
+
+    <section id="roles">
+      <h2>11. Roles and responsibilities</h2>
+      <ul>
+        <li><strong>AI Foundation's leadership</strong> approves this policy and is accountable for MY ASX Options' AI.</li>
+        <li><strong>Our administrator</strong> decides when the AI analyst runs, and acts on reported mistakes.</li>
+        <li><strong>Everyone who works on MY ASX Options</strong> follows this policy and reports concerns.</li>
+        <li><strong>Readers</strong> check the sources before relying on a brief, as our <a href="/terms.html">Terms of Service</a> ask.</li>
+      </ul>
+    </section>
+
+    <section id="concerns">
+      <h2>12. Concerns, incidents and feedback</h2>
+      <p>Tell us at <a href="mailto:support@aifoundation.net.au">support@aifoundation.net.au</a> if you think our AI has got something wrong or been misused. We'll acknowledge your report, investigate it, fix the cause, and tell you what we did.</p>
+    </section>
+
+    <section id="standard">
+      <h2>13. How we follow ISO/IEC 42001</h2>
+      <p>ISO/IEC 42001 sets out how an organisation should run an AI management system. This is how MY ASX Options follows its main parts:</p>
+      <ul>
+        <li><strong>Context of the organisation (clause 4)</strong>: who our AI affects, and the feature this policy covers (<a href="#where">section 3</a>).</li>
+        <li><strong>Leadership (clause 5)</strong>: this AI policy, and the roles in <a href="#roles">section 11</a>.</li>
+        <li><strong>Planning (clause 6)</strong>: risk and impact assessments, and our objectives for accurate, private AI (<a href="#risk">section 7</a>).</li>
+        <li><strong>Support (clause 7)</strong>: the people, tools and records our AI relies on.</li>
+        <li><strong>Operation (clause 8)</strong>: how we build, test and run the AI analyst (<a href="#lifecycle">section 8</a>).</li>
+        <li><strong>Performance evaluation (clause 9)</strong>: monitoring, feedback and regular review (sections <a href="#lifecycle">8</a>, <a href="#concerns">12</a> and <a href="#review">14</a>).</li>
+        <li><strong>Improvement (clause 10)</strong>: fixing problems at their cause, and improving continually.</li>
+      </ul>
+    </section>
+
+    <section id="review">
+      <h2>14. Reviewing this policy</h2>
+      <p>We review this policy at least once a year, and whenever we add or significantly change an AI feature, after a significant incident, or when the law or the standard changes.</p>
+    </section>
+
+    <section id="contact">
+      <h2>15. Contact us</h2>
+      <p>AI Foundation (MY ASX Options)<br>
+        Email: <a href="mailto:support@aifoundation.net.au">support@aifoundation.net.au</a><br>
+        Website: <a href="https://finance.aifoundation.net.au">finance.aifoundation.net.au</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="inner">
+      <a href="https://www.aifoundation.net.au/">&copy; 2026 AI Foundation</a>
+      <a href="/#welcome">Founder Welcome</a>
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+      <a href="/ai-policy.html" aria-current="page">AI Policy (ISO/IEC 42001)</a>
+      <a href="/token-policy.html">Token Policy</a>
+    </div>
+  </footer>
+</body>
+</html>
