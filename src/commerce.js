@@ -13,7 +13,17 @@ const MAX_PRICE = 1_000_000;
 const LEDGER_LIMIT = 5_000;
 
 const DEFAULT_STATE = () => ({
-  settings: { isTokenSystemEnabled: true, isAudEnabled: true, isUsdEnabled: true, tokenPriceAud: 1, tokenPriceUsd: 1 },
+  settings: {
+    isTokenSystemEnabled: true,
+    isAudEnabled: true,
+    isUsdEnabled: true,
+    tokenPriceAud: 1,
+    tokenPriceUsd: 1,
+    countryTokenRates: {
+      KH: 10,
+      TH: 5,
+    },
+  },
   items: [
     {
       id: DETAILS_ITEM_ID,
@@ -51,6 +61,7 @@ function normalize(saved) {
   const defaults = DEFAULT_STATE();
   if (!saved) return defaults;
   const s = { ...defaults, ...saved, settings: { ...defaults.settings, ...saved.settings } };
+  if (!s.settings.countryTokenRates) s.settings.countryTokenRates = { ...defaults.settings.countryTokenRates };
   if (!s.items.some((i) => i.id === DETAILS_ITEM_ID)) s.items.unshift(defaults.items[0]);
   return s;
 }
@@ -77,10 +88,16 @@ export function itemPrices(item, settings) {
 }
 
 /**
- * Currencies this viewer may see. USD follows its toggle; AUD also needs an Australian viewer.
+ * Currencies this viewer may see.
+ * AUD currency: Shown only to visitors located in Australia and New Zealand.
+ * USD currency: Shown to all other countries other than Australia and New Zealand.
  */
 export function visibleCurrencies(settings, country) {
-  return { aud: settings.isAudEnabled && country === "AU", usd: settings.isUsdEnabled };
+  const isAuNz = country === "AU" || country === "NZ";
+  return {
+    aud: settings.isAudEnabled && isAuNz,
+    usd: settings.isUsdEnabled && (!country || !isAuNz || !settings.isAudEnabled),
+  };
 }
 
 /**
@@ -90,8 +107,12 @@ export function visibleCurrencies(settings, country) {
 export function viewerCountry(req) {
   const header = process.env.GEO_COUNTRY_HEADER?.toLowerCase();
   if (header && req.headers[header]) return String(req.headers[header]).trim().toUpperCase();
-  if (/^Australia\//.test(String(req.headers["x-client-timezone"] ?? ""))) return "AU";
-  if (/-AU\b/i.test(String(req.headers["accept-language"] ?? ""))) return "AU";
+  const tz = String(req.headers["x-client-timezone"] ?? "");
+  if (/^Australia\//.test(tz)) return "AU";
+  if (/^Pacific\/Auckland/i.test(tz) || /^Pacific\/Chatham/i.test(tz)) return "NZ";
+  const lang = String(req.headers["accept-language"] ?? "");
+  if (/-AU\b/i.test(lang)) return "AU";
+  if (/-NZ\b/i.test(lang)) return "NZ";
   return null;
 }
 
@@ -154,8 +175,13 @@ export function publicCommerce(s, wallet, country) {
   if (!s.settings.isTokenSystemEnabled) return { tokenSystemEnabled: false };
   const currencies = visibleCurrencies(s.settings, country);
   const priced = (aud, usd) => ({ ...(currencies.aud ? { aud } : {}), ...(currencies.usd ? { usd } : {}) });
+  const countryRates = s.settings.countryTokenRates || {};
+  const tokensPerUsd = (country && countryRates[country]) ? countryRates[country] : 1;
   return {
     tokenSystemEnabled: true,
+    viewerCountry: country,
+    tokensPerUsd,
+    countryTokenRates: countryRates,
     tokenPrice: priced(s.settings.tokenPriceAud, s.settings.tokenPriceUsd),
     items: s.items
       .filter((i) => i.isActive)
@@ -212,6 +238,18 @@ export function updateSettings(patch = {}) {
     }
     if ("tokenPriceAud" in patch) next.tokenPriceAud = wholeNumber(patch.tokenPriceAud, "AUD token price");
     if ("tokenPriceUsd" in patch) next.tokenPriceUsd = wholeNumber(patch.tokenPriceUsd, "USD token price");
+    if ("countryTokenRates" in patch) {
+      if (typeof patch.countryTokenRates !== "object" || patch.countryTokenRates === null) {
+        throw new CommerceError("countryTokenRates must be an object.");
+      }
+      const rates = {};
+      for (const [code, rate] of Object.entries(patch.countryTokenRates)) {
+        const c = String(code).trim().toUpperCase();
+        if (!/^[A-Z]{2}$/.test(c)) throw new CommerceError(`Invalid country code "${code}".`);
+        rates[c] = wholeNumber(rate, `Token amount for ${c}`, { min: 1, max: 1_000_000 });
+      }
+      next.countryTokenRates = rates;
+    }
     s.settings = next;
     return adminView(s);
   });

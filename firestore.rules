@@ -1,0 +1,99 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Database: finance (projects/ai-foundation-firebase/databases/finance)
+    //
+    // Collection: myAsxOptions_app
+    // Document ID: commerce
+    // Fields:
+    //   - isTokenSystemEnabled: bool (required) - Global token economy gate
+    //   - isAudEnabled: bool (required) - AUD currency display toggle
+    //   - isUsdEnabled: bool (required) - USD currency display toggle
+    //   - tokenPriceAud: int (required, 0 to 1000000) - AUD per token
+    //   - tokenPriceUsd: int (required, 0 to 1000000) - USD per token
+    //   - countryTokenRates: map (optional) - ISO-2 country code string to integer token rate (1 to 1000000)
+    //   - updatedAt: string (optional, ISO 8601 date string, max 100 chars)
+    //
+    // Document ID: settings
+    // Fields:
+    //   - watchlist: list of strings (required, max 100 items, each 1 to 12 chars) - ASX tickers
+    //   - schedule: map (required) - keys: enabled (bool), time (string), runOnStartup (bool), ai (bool)
+    //   - thresholds: map (required) - keys: austenderAsxMin, austenderOverseasMin, austenderMajorMin (ints >= 0)
+    //   - sources: map (required) - boolean toggles for data sources
+    //   - includeLocalGovernment: bool (required) - Local council tender inclusion
+    //   - ai: map (required) - keys: maxSearches (int, 1 to 30), effort (string: low/medium/high/xhigh/max)
+    //   - updatedAt: string (optional, ISO 8601 date string, max 100 chars)
+    //
+    // Document ID: users (fallback local store)
+    // Fields:
+    //   - map of uid -> user session records
+    //
+    // Collection: myAsxOptions_reports
+    // Document ID: latest, or YYYY-MM-DD date string (pattern: ^[a-zA-Z0-9_-]{1,64}$)
+    // Fields:
+    //   - meta: map or null (optional) - summary metadata (item counts, breakdown)
+    //   - body: bytes or string (required) - gzip-compressed JSON payload (capped at 1 MiB Firestore doc limit)
+    //   - updatedAt: string (required, ISO 8601 date string, max 100 chars)
+    //
+    // Collection: myAsxOptions_runtime
+    // Document ID: run
+    // Fields:
+    //   - pid: int (required) - Process identifier
+    //   - host: string (required, max 200 chars) - Host machine identifier
+    //   - startedAt: string (required, ISO 8601 date string, max 100 chars)
+    //   - updatedAt: string (required, ISO 8601 date string, max 100 chars)
+    //
+    // ===============================================================
+    // Architecture & Security Invariant: Zero Direct Client Access
+    // ===============================================================
+    //
+    // In accordance with highest-assurance security directives:
+    // 1. All mutations, reads, transactions, and background intelligence runs are
+    //    authorized and executed EXCLUSIVELY via the Firebase Admin SDK using secure
+    //    service accounts (e.g. finance-sa@ai-foundation-firebase.iam.gserviceaccount.com).
+    // 2. Firebase Admin SDK bypasses security rules on the server.
+    // 3. Direct client SDK reads and writes (Web, Mobile, REST) are STRICTLY DENIED.
+    //    No unauthenticated or regular authenticated client may directly query or tamper
+    //    with commerce pricing, contract reports, or run locks.
+    // 4. Default Deny is applied across all collections and documents in this database.
+    //
+
+    // ===============================================================
+    // Collection Security Rules
+    // ===============================================================
+
+    // 1. App Configuration & Settings: /myAsxOptions_app/{docId}
+    // Managed exclusively by backend API via Firebase Admin SDK.
+    // Direct client reads and writes are strictly denied.
+    match /myAsxOptions_app/{docId} {
+      allow read, write: if false;
+    }
+
+    // 2. Report Archives (Gzipped Intelligence): /myAsxOptions_reports/{reportId}
+    // Contains unredacted contract intelligence and token-gated records.
+    // Direct client access is strictly denied to prevent unauthorized data extraction.
+    // Reports are served exclusively through /api/reports/latest with token authorization.
+    match /myAsxOptions_reports/{reportId} {
+      allow read, write: if false;
+    }
+
+    // 3. Runtime Concurrency Locks: /myAsxOptions_runtime/{lockId}
+    // Coordinates report generation processes.
+    // Direct client access is strictly denied to prevent lock tampering or DoS.
+    match /myAsxOptions_runtime/{lockId} {
+      allow read, write: if false;
+    }
+
+    // 4. Default Deny:
+    // Explicit deny for any other document path in this database.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

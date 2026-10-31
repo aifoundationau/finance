@@ -1,0 +1,573 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid} (Firebase Auth UID)
+    // Fields:
+    //   - uid: string (required on create, immutable) - Firebase Auth User UID
+    //   - id: string (optional, immutable) - Matches uid
+    //   - email: string (required on create, immutable) - User email address
+    //   - displayName: string (optional, max 100) - Profile display name
+    //   - photoURL: string (optional, max 1000) - Profile avatar URL
+    //   - phone: string (optional, max 50) - Contact phone number
+    //   - suburb: string (optional, max 100) - Suburb location
+    //   - state: string (optional, max 50) - State or territory
+    //   - fitnessGoal: string (optional, max 100) - Primary fitness goal
+    //   - role: string (immutable by client, default 'supporter') - RBAC role
+    //   - status: string (immutable by client, default 'supporter') - Account status
+    //   - classification: string (immutable by client) - Role label
+    //   - isSuperAdmin: bool (immutable by client, default false) - SuperAdmin flag
+    //   - source: string (optional, max 50) - Tenant app identifier
+    //   - tag: string (optional, max 50) - App tag (#pt)
+    //   - businessName: string (optional, max 100) - Business entity name
+    //   - apps: list of strings (immutable by client, max 20) - Registered apps
+    //   - token_balance: int (immutable by client, default 0) - Universal token balance
+    //   - fitTokens: int (immutable by client, default 0) - FitToken balance mirror
+    //   - unlocked_videos: list of strings (immutable by client) - Lifetime video unlocks
+    //   - messageTokenCost: int (optional, 0 to 1000) - Custom direct messaging token fee set by creator
+    //   - authProvider: string (optional, max 50) - Provider (e.g. google)
+    //   - registeredAt: string (optional, immutable) - Registration timestamp
+    //   - ptRegisteredAt: string (optional, immutable) - App registration timestamp
+    //   - createdAt: string (optional, immutable) - Creation timestamp
+    //   - lastLoginAt: string (optional, max 100) - Login timestamp
+    //   - updatedAt: string (optional, max 100) - Update timestamp
+    //   - loginCount: int/number (optional, >= 0) - Login counter
+    //   - applicationStatus: string (optional, max 50) - Status of trainer application
+    //   - requestedRole: string (optional, max 50) - Requested trainer role
+    //   - applicationUpdatedAt: string (optional, max 100) - Application timestamp
+    //
+    // Collection: roles / pt_roles
+    // Document ID: {roleId} (e.g. 'trainer', 'supporter')
+    // Fields:
+    //   - roleName: string - Human readable label
+    //   - permissions: list of strings - Granular permissions
+    //   - level: int (optional) - Hierarchy level
+    //   - description: string (optional) - Role description
+    //   - updatedAt: timestamp or string - Last modified timestamp
+    //   - updatedBy: string - Admin UID/email who modified
+    //
+    // Collection: role_assignments / pt_role_assignments
+    // Document ID: {email} (Normalized lowercased email)
+    // Fields:
+    //   - email: string - Assigned email
+    //   - role: string - Role identifier
+    //   - assignedAt: timestamp or string - Assignment timestamp
+    //   - assignedBy: string - Admin UID who granted assignment
+    //
+    // Collection: system_settings
+    // Document ID: {settingId} (e.g. 'aifoundation_service_prices', 'pricing_settings')
+    // Fields:
+    //   - prices / rates: map - Service and token pricing matrix
+    //   - toggles: map (optional) - Feature toggles (isTokenSystemEnabled, isAudEnabled, isUsdEnabled)
+    //   - updatedAt: string or timestamp - Update timestamp
+    //   - updatedBy: string - Admin who updated
+    //
+    // Collection: videos / pt_videos
+    // Document ID: {videoId} (YouTube ID or unique ID)
+    // Fields:
+    //   - id: string (immutable) - Video identifier
+    //   - youtubeId: string - YouTube video ID
+    //   - title: string - Video title
+    //   - shortDescription: string (optional) - Video description
+    //   - category: string (optional) - Anatomical / training category
+    //   - muscleGroup: string (optional) - Targeted muscle group
+    //   - equipment: string (optional) - Required equipment
+    //   - difficulty: string (optional) - Experience level
+    //   - tokenCost: int (0 to 100, 0 = Free to view) - Cost in FitTokens
+    //   - messageTokenCost: int (optional, 0 to 1000) - Creator message token rate
+    //   - isFree: bool (optional) - Free view flag
+    //   - creatorUid: string (immutable) - Creator Auth UID
+    //   - author: string (optional) - Creator display name / role
+    //   - thumbnailUrl: string (optional) - Video thumbnail URL
+    //   - status: string (optional) - Publication status ('published')
+    //   - createdAt: string or timestamp (immutable) - Creation timestamp
+    //   - updatedAt: string or timestamp (optional) - Update timestamp
+    //
+    // Collection: video_unlocks
+    // Document ID: {unlockId} ({uid}_{videoId})
+    // Fields:
+    //   - uid / viewerUid: string - Buyer UID
+    //   - videoId: string - Unlocked video ID
+    //   - tokenCost: int - FitTokens paid
+    //   - accessType: string - 'lifetime'
+    //   - unlockedAt: string or timestamp - Unlock timestamp
+    //
+    // Collection: token_ledger
+    // Document ID: {ledgerId} (Deterministic idempotent transaction key)
+    // Fields:
+    //   - uid: string - Member UID
+    //   - delta / change: int - Token balance delta
+    //   - balanceAfter: int - New balance after transaction
+    //   - kind / type: string - 'purchase', 'spend', 'grant', 'revenue_split', 'message_fee'
+    //   - createdAt: string or timestamp - Transaction timestamp
+    //
+    // Collection: trainer_applications
+    // Document ID: {appId} (Applicant UID)
+    // Fields:
+    //   - uid: string - Applicant UID (matches auth.uid)
+    //   - email: string - Applicant email
+    //   - name: string - Applicant full name
+    //   - requestedRole: string - Target health & fitness role
+    //   - phone: string - Applicant phone number
+    //   - experience: string - Practical experience summary
+    //   - bio: string - Professional bio
+    //   - fileId: string - Google Drive credential file ID
+    //   - folderId: string - Google Drive folder ID
+    //   - status: string - 'pending', 'approved', 'rejected'
+    //   - submittedAt: string - Submission timestamp
+    //
+    // Collection: social_posts
+    // Document ID: {postId} (e.g. 'soc_1714000000_abcde')
+    // Fields:
+    //   - id: string (immutable) - Post ID
+    //   - platform: string ('instagram', 'facebook', 'tiktok', 'youtube', 'x', 'twitter', 'threads', 'linkedin', 'other')
+    //   - postUrl / url: string - Source social link
+    //   - title: string - Post headline
+    //   - caption: string (optional) - Body copy
+    //   - tokenCost: int (0 to 100, 0 = Free to view) - FitToken unlock cost
+    //   - messageTokenCost: int (optional, 0 to 1000) - Creator message token rate
+    //   - isFree: bool (optional) - Free view flag
+    //   - creatorUid: string (immutable) - Creator Auth UID
+    //   - author: string (optional) - Author label
+    //   - thumbnailUrl: string (optional) - Image preview URL
+    //   - createdAt: string or timestamp (immutable) - Creation timestamp
+    //   - updatedAt: string or timestamp (optional) - Update timestamp
+    //
+    // Collection: social_unlocks
+    // Document ID: {unlockId} ({uid}_{postId})
+    // Fields:
+    //   - uid: string - Buyer UID
+    //   - postId: string - Unlocked social post ID
+    //   - tokenCost: int - FitTokens paid
+    //   - unlockedAt: string or timestamp - Unlock timestamp
+    //
+    // Collection: creator_messages / direct_messages
+    // Document ID: {messageId} (e.g. 'msg_1714000000_abcde')
+    // Fields:
+    //   - id: string - Message ID
+    //   - senderUid: string - Message sender UID
+    //   - creatorUid / recipientUid: string - Message recipient / creator UID
+    //   - senderName: string (optional) - Sender label
+    //   - senderEmail: string (optional) - Sender email
+    //   - creatorName / recipientName: string (optional) - Recipient label
+    //   - message: string - Message body
+    //   - tokenCost: int (>= 0) - FitTokens fee
+    //   - read: bool (optional) - Read status
+    //   - createdAt: string or timestamp - Timestamp
+    //
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // SuperAdmin authority verification via verified bootstrap UIDs and Emails
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.uid in ['ZK79FRQoVlYhsgvMibhi81dRUWj2', 'L5euSJAfNKdDOX6mT0qmrCGjUA53'] ||
+        (request.auth.token.email_verified == true &&
+         request.auth.token.email in [
+           'support@aifoundation.net.au',
+           'davidrobertson.info@gmail.com',
+           'david@aifoundation.com.au'
+         ])
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+        (request.resource.data[field] is string &&
+         request.resource.data[field].size() >= minLen &&
+         request.resource.data[field].size() <= maxLen);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Protect sensitive fields on user document from client modification
+    function userSensitiveFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'token_balance',
+        'fitTokens',
+        'role',
+        'status',
+        'classification',
+        'isSuperAdmin',
+        'apps',
+        'unlocked_videos',
+        'uid',
+        'id',
+        'email',
+        'createdAt',
+        'registeredAt',
+        'ptRegisteredAt',
+        'token_balance_updated_at'
+      ]);
+    }
+
+    // Validate client-modifiable profile fields (includes custom messageTokenCost)
+    function isValidUserProfileData(data) {
+      return isValidOptionalString('displayName', 1, 100) &&
+        isValidOptionalString('photoURL', 0, 1000) &&
+        isValidOptionalString('phone', 0, 50) &&
+        isValidOptionalString('suburb', 0, 100) &&
+        isValidOptionalString('state', 0, 50) &&
+        isValidOptionalString('fitnessGoal', 0, 100) &&
+        isValidOptionalString('businessName', 0, 100) &&
+        isValidOptionalString('source', 0, 50) &&
+        isValidOptionalString('tag', 0, 50) &&
+        isValidOptionalString('authProvider', 0, 50) &&
+        isValidOptionalString('updatedAt', 0, 100) &&
+        isValidOptionalString('lastLoginAt', 0, 100) &&
+        (!('loginCount' in data) || (data.loginCount is number && data.loginCount >= 0)) &&
+        (!('messageTokenCost' in data) || (data.messageTokenCost is int && data.messageTokenCost >= 0 && data.messageTokenCost <= 1000)) &&
+        (!('applicationStatus' in data) || (data.applicationStatus is string && data.applicationStatus.size() <= 50)) &&
+        (!('requestedRole' in data) || (data.requestedRole is string && data.requestedRole.size() <= 50)) &&
+        (!('applicationUpdatedAt' in data) || (data.applicationUpdatedAt is string && data.applicationUpdatedAt.size() <= 100));
+    }
+
+    // Client user profile creation validator (prevents privilege escalation & free tokens)
+    function isValidUserCreate(data, userId) {
+      return data.uid == userId &&
+        data.uid == request.auth.uid &&
+        isValidEmail(data.email) &&
+        (!('role' in data) || data.role == 'supporter') &&
+        (!('status' in data) || data.status == 'supporter') &&
+        (!('isSuperAdmin' in data) || data.isSuperAdmin == false) &&
+        (!('token_balance' in data) || data.token_balance == 0) &&
+        (!('fitTokens' in data) || data.fitTokens == 0) &&
+        (!('apps' in data) || (data.apps is list && data.apps.size() <= 20)) &&
+        isValidUserProfileData(data);
+    }
+
+    // Client user profile update validator
+    function isValidUserUpdate(userId) {
+      return isOwner(userId) &&
+        userSensitiveFieldsUnchanged() &&
+        isValidUserProfileData(request.resource.data);
+    }
+
+    // Social post validator for create and update
+    function isValidSocialPost(data) {
+      return data.creatorUid == request.auth.uid &&
+        data.platform in [
+          'instagram',
+          'facebook',
+          'tiktok',
+          'youtube',
+          'youtube_shorts',
+          'x',
+          'twitter',
+          'threads',
+          'linkedin',
+          'other'
+        ] &&
+        data.tokenCost is int &&
+        data.tokenCost >= 0 &&
+        data.tokenCost <= 100 &&
+        (!('messageTokenCost' in data) || (data.messageTokenCost is int && data.messageTokenCost >= 0 && data.messageTokenCost <= 1000)) &&
+        (!('isFree' in data) || data.isFree is bool) &&
+        isValidOptionalString('title', 1, 200) &&
+        isValidOptionalString('caption', 0, 3000) &&
+        isValidOptionalString('url', 0, 1000) &&
+        isValidOptionalString('postUrl', 0, 1000) &&
+        isValidOptionalString('thumbnailUrl', 0, 1000) &&
+        isValidOptionalString('author', 0, 200) &&
+        isValidOptionalString('category', 0, 100);
+    }
+
+    // Video catalog validator for create and update
+    function isValidVideoData(data) {
+      return data.creatorUid == request.auth.uid &&
+        data.tokenCost is int &&
+        data.tokenCost >= 0 &&
+        data.tokenCost <= 100 &&
+        (!('messageTokenCost' in data) || (data.messageTokenCost is int && data.messageTokenCost >= 0 && data.messageTokenCost <= 1000)) &&
+        (!('isFree' in data) || data.isFree is bool) &&
+        isValidOptionalString('title', 1, 200) &&
+        isValidOptionalString('youtubeId', 1, 50) &&
+        isValidOptionalString('videoUrl', 0, 1000) &&
+        isValidOptionalString('youtubeUrl', 0, 1000) &&
+        isValidOptionalString('embedUrl', 0, 1000) &&
+        isValidOptionalString('thumbnailUrl', 0, 1000) &&
+        isValidOptionalString('shortDescription', 0, 2000) &&
+        isValidOptionalString('author', 0, 200) &&
+        isValidOptionalString('category', 0, 100) &&
+        isValidOptionalString('muscleGroup', 0, 100) &&
+        isValidOptionalString('equipment', 0, 100) &&
+        isValidOptionalString('difficulty', 0, 100) &&
+        isValidOptionalString('duration', 0, 50) &&
+        isValidOptionalString('status', 0, 50);
+    }
+
+    // Message read authorization helper (sender, creator, or recipient)
+    function canReadMessage(data) {
+      return isSuperAdmin() || (
+        isAuthenticated() && (
+          ('senderUid' in data && data.senderUid == request.auth.uid) ||
+          ('creatorUid' in data && data.creatorUid == request.auth.uid) ||
+          ('recipientUid' in data && data.recipientUid == request.auth.uid)
+        )
+      );
+    }
+
+    // Trainer Application validator
+    function isValidTrainerApplication(data) {
+      return data.uid == request.auth.uid &&
+        isValidEmail(data.email) &&
+        data.requestedRole is string &&
+        data.requestedRole in [
+          'trainer',
+          'strength_coach',
+          'physiotherapist',
+          'nutritionist',
+          'doctor',
+          'exercise_physiologist',
+          'rehab_specialist',
+          'yoga_pilates'
+        ] &&
+        data.status == 'pending' &&
+        (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+        (!('experience' in data) || (data.experience is string && data.experience.size() <= 1000)) &&
+        (!('bio' in data) || (data.bio is string && data.bio.size() <= 2000)) &&
+        (!('fileId' in data) || (data.fileId is string && data.fileId.size() <= 200)) &&
+        (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 200)) &&
+        (!('folderId' in data) || (data.folderId is string && data.folderId.size() <= 200)) &&
+        (!('folderUrl' in data) || (data.folderUrl is string && data.folderUrl.size() <= 500)) &&
+        (!('webViewLink' in data) || (data.webViewLink is string && data.webViewLink.size() <= 500)) &&
+        (!('reviewedBy' in data) || data.reviewedBy == null) &&
+        (!('reviewedAt' in data) || data.reviewedAt == null) &&
+        (!('assignedRole' in data) || data.assignedRole == null);
+    }
+
+    // ===============================================================
+    // Collection Security Rules
+    // ===============================================================
+
+    // 1. Users collection: /users/{uid}
+    // Authenticated users can read and update their own document only (PII protected).
+    // Superadmins have full read/write access.
+    // Sensitive fields (tokens, roles, apps, email, uid) are strictly locked from client writes.
+    match /users/{uid} {
+      allow read: if isSuperAdmin() || isOwner(uid);
+      allow create: if isSuperAdmin() || (isOwner(uid) && isValidUserCreate(request.resource.data, uid));
+      allow update: if isSuperAdmin() || isValidUserUpdate(uid);
+      allow delete: if isSuperAdmin();
+    }
+
+    // 2. Roles & Permissions catalogs: /roles/{roleId} and /pt_roles/{roleId}
+    // Authenticated users can inspect roles and permissions matrix.
+    // Write permitted exclusively to Superadmins.
+    match /roles/{roleId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+    match /pt_roles/{roleId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // 3. Role assignments: /role_assignments/{email} and /pt_role_assignments/{email}
+    // Authenticated users can read assignments.
+    // Write permitted exclusively to Superadmins.
+    match /role_assignments/{email} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+    match /pt_role_assignments/{email} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // 4. System Settings: /system_settings/{settingId}
+    // Public read for service and pricing settings (aifoundation_service_prices, pricing_settings)
+    // so client apps can resolve visitor geolocated token pricing and system toggles.
+    // Authenticated read for all other settings.
+    // Write permitted exclusively to Superadmins.
+    match /system_settings/{settingId} {
+      allow read: if settingId in ['aifoundation_service_prices', 'pricing_settings'] || isAuthenticated() || isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    // 5. Workout Catalog: /videos/{videoId} and /pt_videos/{videoId}
+    // Public read for all visitors to browse the catalog.
+    // Create, update, and delete permitted to the creator or Superadmin.
+    // Core identity and creation timestamps are immutable.
+    match /videos/{videoId} {
+      allow read: if true;
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() && isValidVideoData(request.resource.data)
+      );
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() &&
+        resource.data.creatorUid == request.auth.uid &&
+        areImmutableFieldsUnchanged(['id', 'creatorUid', 'createdAt']) &&
+        isValidVideoData(request.resource.data)
+      );
+      allow delete: if isSuperAdmin() || (
+        isAuthenticated() && resource.data.creatorUid == request.auth.uid
+      );
+    }
+    match /pt_videos/{videoId} {
+      allow read: if true;
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() && isValidVideoData(request.resource.data)
+      );
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() &&
+        resource.data.creatorUid == request.auth.uid &&
+        areImmutableFieldsUnchanged(['id', 'creatorUid', 'createdAt']) &&
+        isValidVideoData(request.resource.data)
+      );
+      allow delete: if isSuperAdmin() || (
+        isAuthenticated() && resource.data.creatorUid == request.auth.uid
+      );
+    }
+
+    // 6. Video Unlocks: /video_unlocks/{unlockId}
+    // Authenticated members can read their own video unlocks.
+    // Client writes forbidden (managed by server-side Admin SDK transactions).
+    match /video_unlocks/{unlockId} {
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && (
+          ('uid' in resource.data && resource.data.uid == request.auth.uid) ||
+          ('viewerUid' in resource.data && resource.data.viewerUid == request.auth.uid)
+        )
+      );
+      allow write: if isSuperAdmin();
+    }
+
+    // 7. Token Ledger: /token_ledger/{ledgerId}
+    // Authenticated users can read their own ledger transactions.
+    // Client writes forbidden (must go through server-side double-entry transaction).
+    match /token_ledger/{ledgerId} {
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && ('uid' in resource.data && resource.data.uid == request.auth.uid)
+      );
+      allow write: if isSuperAdmin();
+    }
+
+    // 8. Trainer Applications: /trainer_applications/{appId}
+    // Users can read their own application. SuperAdmin can list and read all.
+    // Users can submit their own application with status 'pending'.
+    // Review and status updates handled by Admin SDK or Superadmin.
+    match /trainer_applications/{appId} {
+      allow get: if isSuperAdmin() || (
+        isAuthenticated() && (
+          request.auth.uid == appId ||
+          ('uid' in resource.data && resource.data.uid == request.auth.uid)
+        )
+      );
+      allow list: if isSuperAdmin();
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() &&
+        request.auth.uid == appId &&
+        isValidTrainerApplication(request.resource.data)
+      );
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() &&
+        request.auth.uid == appId &&
+        resource.data.status == 'pending' &&
+        isValidTrainerApplication(request.resource.data) &&
+        areImmutableFieldsUnchanged(['uid', 'email', 'reviewedBy', 'reviewedAt', 'assignedRole'])
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 9. Admin Notifications: /admin_notifications/{notificationId}
+    // Internal notifications for Superadmin and Admin operations.
+    match /admin_notifications/{notificationId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // 10. Consultations / Intake: /consultations/{consultationId}
+    // Sensitive health and intake inquiries (Privacy Act protected).
+    match /consultations/{consultationId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // 11. Token Checkouts: /token_checkouts/{checkoutId}
+    // Stripe checkout session tracking.
+    match /token_checkouts/{checkoutId} {
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && checkoutId.matches('.*_' + request.auth.uid)
+      );
+      allow write: if isSuperAdmin();
+    }
+
+    // 12. Social Posts: /social_posts/{postId}
+    // Public read for all published social posts (Instagram, Facebook, TikTok, YouTube, X, etc.).
+    // Creators and SuperAdmin can create, update, and delete their own posts.
+    // tokenCost allows non-negative integers (0 = Free to view, 1 to 100).
+    // messageTokenCost allows creator to configure direct messaging token fee (>= 0).
+    // Core identity and creation timestamps are strictly immutable.
+    match /social_posts/{postId} {
+      allow read: if true;
+      allow create: if isSuperAdmin() || (
+        isAuthenticated() && isValidSocialPost(request.resource.data)
+      );
+      allow update: if isSuperAdmin() || (
+        isAuthenticated() &&
+        resource.data.creatorUid == request.auth.uid &&
+        areImmutableFieldsUnchanged(['id', 'creatorUid', 'createdAt']) &&
+        isValidSocialPost(request.resource.data)
+      );
+      allow delete: if isSuperAdmin() || (
+        isAuthenticated() && resource.data.creatorUid == request.auth.uid
+      );
+    }
+
+    // 13. Social Unlocks: /social_unlocks/{unlockId}
+    // Buyer and Superadmin can read post unlock verification.
+    match /social_unlocks/{unlockId} {
+      allow read: if isSuperAdmin() || (
+        isAuthenticated() && (
+          resource.data.uid == request.auth.uid ||
+          unlockId.matches('^' + request.auth.uid + '_.*')
+        )
+      );
+      allow write: if isSuperAdmin();
+    }
+
+    // 14. Creator Messages: /creator_messages/{messageId}
+    // Sender, Creator/Recipient, and SuperAdmin can read messages.
+    // Client writes restricted to SuperAdmin (regular member messaging managed via server Admin SDK).
+    match /creator_messages/{messageId} {
+      allow read: if canReadMessage(resource.data);
+      allow write: if isSuperAdmin();
+    }
+
+    // 15. Direct Messages: /direct_messages/{messageId}
+    // Sender, Creator/Recipient, and SuperAdmin can read messages.
+    // Client writes restricted to SuperAdmin (regular member messaging managed via server Admin SDK).
+    match /direct_messages/{messageId} {
+      allow read: if canReadMessage(resource.data);
+      allow write: if isSuperAdmin();
+    }
+
+    // 16. Default Deny:
+    // Explicit deny for any unspecified path in the database.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

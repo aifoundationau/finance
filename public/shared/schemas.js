@@ -60,11 +60,17 @@ export const LOGIN_REQUEST = obj("Sign-in", { password: str("Password", { minLen
 
 export const COMMERCE_SETTINGS = obj("Token system settings", {
   isTokenSystemEnabled: bool("Token system", "Off: no tokens anywhere and all contract details are visible to everyone."),
-  isAudEnabled: bool("AUD currency", "Shown only to visitors located in Australia."),
-  isUsdEnabled: bool("USD currency"),
+  isAudEnabled: bool("AUD currency", "Shown only to visitors located in Australia and New Zealand."),
+  isUsdEnabled: bool("USD currency", "Shown to all other countries other than Australia and New Zealand."),
   tokenPriceAud: int("AUD price", 0, 1_000_000, { description: "Whole dollars per token" }),
   tokenPriceUsd: int("USD price", 0, 1_000_000, { description: "Whole dollars per token" }),
-});
+  countryTokenRates: {
+    type: "object",
+    title: "Country Token Rates",
+    additionalProperties: { type: "integer", minimum: 1, maximum: 1_000_000 },
+    description: "Special token amount per country (e.g. KH: 10, TH: 5)",
+  },
+}, { required: ["isTokenSystemEnabled", "isAudEnabled", "isUsdEnabled", "tokenPriceAud", "tokenPriceUsd"] });
 export const COMMERCE_SETTINGS_PATCH = partial(COMMERCE_SETTINGS);
 
 export const ITEM_INPUT = obj(

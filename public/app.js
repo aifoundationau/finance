@@ -11,6 +11,7 @@ import {
   SETTINGS_PATCH, WALLET_ADJUST_REQUEST,
 } from "/shared/schemas.js";
 import { googleStockSearchUrl } from "/shared/exchanges.js";
+import { GLOBAL_COUNTRIES, COUNTRY_NAME_MAP, getCountryName, fetchWorldBankPpp } from "/shared/countries.js";
 
 // Tells boot-check.js the module graph loaded (an import that fails stops this file running).
 window.__maoStarted = true;
@@ -56,6 +57,7 @@ const state = {
   pricePeriod: "1m",
   pollTimer: null,
   wasRunning: false,
+  geo: null,
 };
 
 const safeUrl = (url) => (/^https?:\/\//i.test(url ?? "") ? url : null);
@@ -100,7 +102,13 @@ const dollars = (n, currency) => `$${Math.round(n)} ${currency}`;
 
 /** Dollar lines for a price object, only for currencies this visitor may see. */
 function priceLines(price = {}) {
-  return [price.aud !== undefined ? dollars(price.aud, "AUD") : null, price.usd !== undefined ? dollars(price.usd, "USD") : null].filter(Boolean);
+  const lines = [price.aud !== undefined ? dollars(price.aud, "AUD") : null, price.usd !== undefined ? dollars(price.usd, "USD") : null].filter(Boolean);
+  if (price.usd !== undefined && state.commerce?.tokensPerUsd && state.commerce.tokensPerUsd > 1) {
+    const country = state.commerce.viewerCountry;
+    const countryName = getCountryName(country) || country || "Regional";
+    lines.push(`(USD $1 = ${state.commerce.tokensPerUsd} tokens in ${countryName})`);
+  }
+  return lines;
 }
 
 /** Token icon + whole-number amount; dollar equivalents appear only in its hover/focus tooltip. */
@@ -1499,6 +1507,7 @@ function renderAdmin() {
 
   const toggles = schemaForm({ id: "admin-toggles", schema: COMMERCE_SETTINGS_PATCH, only: ["isTokenSystemEnabled", "isAudEnabled", "isUsdEnabled"], values: a.settings, title: "System toggles" });
   const pricing = schemaForm({ id: "admin-pricing", schema: COMMERCE_SETTINGS_PATCH, only: ["tokenPriceAud", "tokenPriceUsd"], values: a.settings, title: "Token price", submitLabel: "Save prices" });
+  const countryPricing = buildCountryPricing(a);
 
   const editing = a.items.find((i) => i.id === state.editingItem) ?? null;
   const itemForm = schemaForm({
@@ -1535,7 +1544,13 @@ function renderAdmin() {
             "c-source",
             null,
             h("button", { class: "btn-link", type: "button", "data-admin-edit": i.id, ...agent(`btn_admin_edit_${i.id}`) }, "Edit"),
-            i.system ? null : h("button", { class: "btn-link", type: "button", "data-admin-delete": i.id, ...agent(`btn_admin_delete_${i.id}`) }, "Delete"),
+            i.system ? null : h("button", { class: "btn-link text-danger", type: "button", "data-admin-delete": i.id, ...agent(`btn_admin_delete_${i.id}`) }, "Delete"),
+            i.system ? null : h(
+              "span",
+              { class: "confirm-item-del-group", "data-confirm-item-group": i.id, hidden: true },
+              h("button", { class: "btn btn-sm btn-danger", type: "button", "data-confirm-item-delete": i.id, ...agent(`btn_confirm_del_${i.id}`) }, "Confirm Delete"),
+              h("button", { class: "btn btn-sm btn-ghost", type: "button", "data-cancel-item-delete": i.id, ...agent(`btn_cancel_del_${i.id}`) }, "Cancel"),
+            ),
           ),
         ),
       ),
@@ -1615,8 +1630,214 @@ function renderAdmin() {
       { class: "settings-grid" },
       toggles,
       pricing,
+      countryPricing,
       h("section", { class: "card card-wide" }, h("h3", { class: "card-title" }, "Saleable items"), h("div", { class: "table-wrap" }, itemsTable), itemForm),
       wallets,
+    ),
+  );
+}
+
+function buildCountryPricing(a) {
+  const currentRates = a.settings.countryTokenRates || {};
+  const entries = Object.entries(currentRates);
+
+  const searchInput = h("input", {
+    type: "text",
+    id: "admin-country-search",
+    placeholder: "Filter countries (e.g. Cambodia, TH)…",
+    class: "admin-country-search-input",
+    autocomplete: "off",
+    ...agent("input_admin_country_search"),
+  });
+
+  const select = h(
+    "select",
+    { id: "admin-country-code", name: "countryCode", class: "admin-country-select", ...agent("select_admin_country") },
+    GLOBAL_COUNTRIES.map(({ code, name }) =>
+      h("option", { value: code }, `${name} (${code})`)
+    ),
+  );
+
+  const amountInput = h("input", {
+    type: "number",
+    id: "admin-country-tokens",
+    name: "tokens",
+    min: "1",
+    max: "1000000",
+    value: "10",
+    placeholder: "e.g. 10",
+    class: "admin-country-tokens-input",
+    ...agent("input_admin_country_tokens"),
+  });
+
+  const suggestBtn = h(
+    "button",
+    {
+      type: "button",
+      class: "btn btn-ghost btn-sm",
+      id: "admin-btn-suggest-ppp",
+      title: "Fetch latest purchasing power parity factor from World Bank open data",
+      ...agent("btn_suggest_country_ppp"),
+    },
+    "⚡ World Bank PPP",
+  );
+
+  const addBtn = h(
+    "button",
+    {
+      type: "button",
+      class: "btn btn-primary",
+      id: "admin-btn-add-country-rate",
+      ...agent("btn_add_country_rate"),
+    },
+    "Set Country Rate",
+  );
+
+  const syncAllBtn = entries.length
+    ? h(
+        "button",
+        {
+          type: "button",
+          class: "btn btn-ghost btn-sm",
+          id: "admin-btn-sync-all-ppp",
+          title: "Query World Bank PPP for all active countries",
+          ...agent("btn_sync_all_country_ppp"),
+        },
+        "⚡ Sync All Active via World Bank",
+      )
+    : null;
+
+  return h(
+    "div",
+    { class: "card country-pricing-card", id: "admin-country-pricing" },
+    h(
+      "div",
+      { class: "card-head-row" },
+      h("h3", { class: "card-title" }, "Special Token Amount by Country (Purchasing Power Parity)"),
+      syncAllBtn,
+    ),
+    h(
+      "p",
+      { class: "hint" },
+      "Set flexible geolocated token amounts per USD $1 for any country in the world (e.g. USD $1 = 10 Tokens for Cambodia, USD $1 = 5 Tokens for Thailand). Australian & NZ visitors convert to AUD. Real-time rates can be updated inline or fetched from World Bank open economic data.",
+    ),
+    h(
+      "div",
+      { class: "country-pricing-controls" },
+      h(
+        "div",
+        { class: "field field-grow" },
+        h("label", { for: "admin-country-search" }, "Country (270+ World Countries & Territories)"),
+        searchInput,
+        select,
+      ),
+      h(
+        "div",
+        { class: "field field-tokens" },
+        h("label", { for: "admin-country-tokens" }, "Tokens per USD $1"),
+        amountInput,
+      ),
+      h(
+        "div",
+        { class: "country-controls-actions" },
+        suggestBtn,
+        addBtn,
+      ),
+    ),
+    h(
+      "div",
+      { class: "country-rates-list" },
+      h("h4", { class: "country-rates-title" }, `Active Country Rates (${entries.length})`),
+      entries.length
+        ? h(
+            "ul",
+            { class: "country-rates-ul", id: "admin-country-rates-ul" },
+            entries.map(([code, rate]) =>
+              h(
+                "li",
+                { class: "country-rate-row", "data-country-row": code },
+                h(
+                  "div",
+                  { class: "country-rate-info" },
+                  h("span", { class: "country-rate-name" }, `${getCountryName(code)} (${code})`),
+                  h("span", { class: "country-rate-meta" }, `USD $1 =`),
+                ),
+                h(
+                  "div",
+                  { class: "country-rate-actions" },
+                  h("input", {
+                    type: "number",
+                    class: "country-rate-input",
+                    min: "1",
+                    max: "1000000",
+                    value: String(rate),
+                    "data-country-rate-input": code,
+                    "aria-label": `Tokens per USD $1 for ${getCountryName(code)}`,
+                    ...agent(`input_rate_${code}`),
+                  }),
+                  h("span", { class: "unit-label" }, "Tokens"),
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn btn-sm btn-secondary",
+                      "data-update-country-rate": code,
+                      title: "Update this country rate",
+                      ...agent(`btn_update_rate_${code}`),
+                    },
+                    "Update",
+                  ),
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn-link text-subtle",
+                      "data-wb-suggest-rate": code,
+                      title: "Fetch World Bank PPP suggestion for this country",
+                      ...agent(`btn_wb_suggest_${code}`),
+                    },
+                    "⚡ WB",
+                  ),
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn-link text-danger",
+                      "data-delete-country-rate": code,
+                      title: "Delete this country rate",
+                      ...agent(`btn_del_rate_${code}`),
+                    },
+                    "Delete",
+                  ),
+                  h(
+                    "div",
+                    { class: "confirm-delete-group", "data-confirm-delete-group": code, hidden: true },
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        class: "btn btn-sm btn-danger",
+                        "data-confirm-delete-rate": code,
+                        ...agent(`btn_confirm_del_rate_${code}`),
+                      },
+                      "Confirm Delete",
+                    ),
+                    h(
+                      "button",
+                      {
+                        type: "button",
+                        class: "btn btn-sm btn-ghost",
+                        "data-cancel-delete-rate": code,
+                        ...agent(`btn_cancel_del_rate_${code}`),
+                      },
+                      "Cancel",
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+        : h("p", { class: "muted" }, "No country overrides set. Global default applies (USD $1 = 1 Token)."),
     ),
   );
 }
@@ -1661,19 +1882,203 @@ function bindAdmin() {
       await adminCall("POST", `wallets/${encodeURIComponent(form.dataset.walletId)}/adjust`, { ...value, note: "superadmin adjustment" }, { form, message: "Wallet updated" });
     }
   });
+
+  admin.addEventListener("input", (event) => {
+    if (event.target.id === "admin-country-search") {
+      const q = event.target.value.toLowerCase().trim();
+      const select = $("#admin-country-code");
+      if (!select) return;
+      let matched = false;
+      for (const opt of select.options) {
+        const matches = !q || opt.text.toLowerCase().includes(q) || opt.value.toLowerCase() === q;
+        opt.hidden = !matches;
+        if (matches && !matched) {
+          select.value = opt.value;
+          matched = true;
+        }
+      }
+    }
+  });
+
   admin.addEventListener("change", (event) => {
     const form = event.target.form;
-    if (form?.id !== "admin-toggles") return;
-    const value = readForm(form, COMMERCE_SETTINGS_PATCH);
-    adminCall("PUT", "settings", value, { form, message: "Saved" });
+    if (form?.id === "admin-toggles") {
+      const value = readForm(form, COMMERCE_SETTINGS_PATCH);
+      adminCall("PUT", "settings", value, { form, message: "Saved" });
+      return;
+    }
+    if (event.target.id === "admin-country-code") {
+      const select = event.target;
+      const search = $("#admin-country-search");
+      if (search && select.selectedOptions[0]) {
+        search.value = select.selectedOptions[0].text;
+      }
+    }
   });
-  document.addEventListener("click", (event) => {
+
+  document.addEventListener("click", async (event) => {
+    const suggestPpp = event.target.closest("#admin-btn-suggest-ppp");
+    if (suggestPpp) {
+      event.preventDefault();
+      const code = $("#admin-country-code")?.value;
+      if (!code) return;
+      suggestPpp.textContent = "⚡ Fetching…";
+      suggestPpp.disabled = true;
+      try {
+        const ppp = await fetchWorldBankPpp(code);
+        if (ppp) {
+          const input = $("#admin-country-tokens");
+          if (input) input.value = String(ppp.tokensPerUsd);
+          announce(`World Bank PPP (${ppp.year}): ${ppp.countryName} FX ${ppp.exchangeRate.toFixed(1)} / PPP ${ppp.pppFactor.toFixed(1)} = ~${ppp.tokensPerUsd} tokens per USD $1`);
+        } else {
+          announce(`No World Bank PPP data found for ${getCountryName(code)} (${code}). Please enter custom rate.`, "info");
+        }
+      } catch (err) {
+        announce(`Could not fetch World Bank PPP: ${err.message}`, "error");
+      } finally {
+        suggestPpp.textContent = "⚡ World Bank PPP";
+        suggestPpp.disabled = false;
+      }
+      return;
+    }
+
+    const syncAllPpp = event.target.closest("#admin-btn-sync-all-ppp");
+    if (syncAllPpp) {
+      event.preventDefault();
+      const currentRates = state.admin?.settings?.countryTokenRates || {};
+      const codes = Object.keys(currentRates);
+      if (!codes.length) return;
+      syncAllPpp.textContent = "⚡ Syncing…";
+      syncAllPpp.disabled = true;
+      try {
+        let updatedCount = 0;
+        await Promise.all(
+          codes.map(async (code) => {
+            const ppp = await fetchWorldBankPpp(code);
+            if (ppp) {
+              const input = document.querySelector(`[data-country-rate-input="${code}"]`);
+              if (input) {
+                input.value = String(ppp.tokensPerUsd);
+                input.style.borderColor = "var(--accent)";
+                updatedCount++;
+              }
+            }
+          })
+        );
+        announce(`Fetched World Bank PPP suggestions for ${updatedCount} countries. Review the values and click 'Update' to save.`);
+      } catch (err) {
+        announce(`Sync error: ${err.message}`, "error");
+      } finally {
+        syncAllPpp.textContent = "⚡ Sync All Active via World Bank";
+        syncAllPpp.disabled = false;
+      }
+      return;
+    }
+
+    const rowWbSuggest = event.target.closest("[data-wb-suggest-rate]");
+    if (rowWbSuggest) {
+      event.preventDefault();
+      const code = rowWbSuggest.dataset.wbSuggestRate;
+      rowWbSuggest.textContent = "…";
+      try {
+        const ppp = await fetchWorldBankPpp(code);
+        if (ppp) {
+          const input = document.querySelector(`[data-country-rate-input="${code}"]`);
+          if (input) {
+            input.value = String(ppp.tokensPerUsd);
+            input.style.borderColor = "var(--accent)";
+          }
+          announce(`World Bank PPP (${ppp.year}): suggested ${ppp.tokensPerUsd} tokens per USD $1 for ${ppp.countryName}`);
+        } else {
+          announce(`No World Bank PPP data found for ${code}`, "info");
+        }
+      } catch (err) {
+        announce(err.message, "error");
+      } finally {
+        rowWbSuggest.textContent = "⚡ WB";
+      }
+      return;
+    }
+
+    const updateCountryRate = event.target.closest("[data-update-country-rate]");
+    if (updateCountryRate) {
+      event.preventDefault();
+      const code = updateCountryRate.dataset.updateCountryRate;
+      const input = document.querySelector(`[data-country-rate-input="${code}"]`);
+      const val = parseInt(input?.value, 10);
+      if (!code || isNaN(val) || val < 1) {
+        announce("Please enter a valid token amount (at least 1)", "error");
+        return;
+      }
+      const existing = { ...(state.admin?.settings?.countryTokenRates || {}) };
+      existing[code] = val;
+      adminCall("PUT", "settings", { countryTokenRates: existing }, { message: `Rate updated: USD $1 = ${val} Tokens for ${getCountryName(code)} (${code})` });
+      return;
+    }
+
+    const addCountryRate = event.target.closest("#admin-btn-add-country-rate");
+    if (addCountryRate) {
+      event.preventDefault();
+      const code = $("#admin-country-code")?.value;
+      const tokensVal = parseInt($("#admin-country-tokens")?.value, 10);
+      if (!code || isNaN(tokensVal) || tokensVal < 1) {
+        announce("Please enter a valid token amount (at least 1)", "error");
+        return;
+      }
+      const existing = { ...(state.admin?.settings?.countryTokenRates || {}) };
+      existing[code] = tokensVal;
+      adminCall("PUT", "settings", { countryTokenRates: existing }, { message: `Rate saved: USD $1 = ${tokensVal} Tokens for ${getCountryName(code)} (${code})` });
+      return;
+    }
+
+    const delCountryRate = event.target.closest("[data-delete-country-rate]");
+    if (delCountryRate) {
+      event.preventDefault();
+      const code = delCountryRate.dataset.deleteCountryRate;
+      const row = delCountryRate.closest(".country-rate-row");
+      if (row) {
+        delCountryRate.hidden = true;
+        const wbBtn = row.querySelector("[data-wb-suggest-rate]");
+        if (wbBtn) wbBtn.hidden = true;
+        const confirmGroup = row.querySelector(`[data-confirm-delete-group="${code}"]`);
+        if (confirmGroup) confirmGroup.hidden = false;
+      }
+      return;
+    }
+
+    const cancelDelRate = event.target.closest("[data-cancel-delete-rate]");
+    if (cancelDelRate) {
+      event.preventDefault();
+      const code = cancelDelRate.dataset.cancelDeleteRate;
+      const row = cancelDelRate.closest(".country-rate-row");
+      if (row) {
+        const delBtn = row.querySelector(`[data-delete-country-rate="${code}"]`);
+        if (delBtn) delBtn.hidden = false;
+        const wbBtn = row.querySelector("[data-wb-suggest-rate]");
+        if (wbBtn) wbBtn.hidden = false;
+        const confirmGroup = row.querySelector(`[data-confirm-delete-group="${code}"]`);
+        if (confirmGroup) confirmGroup.hidden = true;
+      }
+      return;
+    }
+
+    const confirmDelRate = event.target.closest("[data-confirm-delete-rate]");
+    if (confirmDelRate) {
+      event.preventDefault();
+      const code = confirmDelRate.dataset.confirmDeleteRate;
+      const existing = { ...(state.admin?.settings?.countryTokenRates || {}) };
+      delete existing[code];
+      adminCall("PUT", "settings", { countryTokenRates: existing }, { message: `Country rate removed for ${getCountryName(code)} (${code})` });
+      return;
+    }
+
     const tab = event.target.closest("[data-admin-tab]");
     if (tab) {
       event.preventDefault();
       setAdminTab(tab.dataset.adminTab);
       return;
     }
+
     const edit = event.target.closest("[data-admin-edit]");
     if (edit) {
       state.editingItem = edit.dataset.adminEdit;
@@ -1681,13 +2086,44 @@ function bindAdmin() {
       $("#admin-item").scrollIntoView({ block: "center" });
       return;
     }
+
     if (event.target.closest("[data-admin-cancel]")) {
       state.editingItem = null;
       renderAdmin();
       return;
     }
-    const del = event.target.closest("[data-admin-delete]");
-    if (del && confirm("Delete this item?")) adminCall("DELETE", `items/${encodeURIComponent(del.dataset.adminDelete)}`, {}, { message: "Item deleted" });
+
+    const adminDelete = event.target.closest("[data-admin-delete]");
+    if (adminDelete) {
+      event.preventDefault();
+      const id = adminDelete.dataset.adminDelete;
+      const parent = adminDelete.parentElement;
+      adminDelete.hidden = true;
+      const confirmGroup = parent?.querySelector(`[data-confirm-item-group="${id}"]`);
+      if (confirmGroup) confirmGroup.hidden = false;
+      return;
+    }
+
+    const cancelItemDel = event.target.closest("[data-cancel-item-delete]");
+    if (cancelItemDel) {
+      event.preventDefault();
+      const id = cancelItemDel.dataset.cancelItemDelete;
+      const parent = cancelItemDel.closest(".c-source");
+      const delBtn = parent?.querySelector(`[data-admin-delete="${id}"]`);
+      if (delBtn) delBtn.hidden = false;
+      const confirmGroup = parent?.querySelector(`[data-confirm-item-group="${id}"]`);
+      if (confirmGroup) confirmGroup.hidden = true;
+      return;
+    }
+
+    const confirmItemDel = event.target.closest("[data-confirm-item-delete]");
+    if (confirmItemDel) {
+      event.preventDefault();
+      const id = confirmItemDel.dataset.confirmItemDelete;
+      adminCall("DELETE", `items/${encodeURIComponent(id)}`, {}, { message: "Item deleted" });
+      return;
+    }
+
     if (event.target.closest("[data-admin-logout]")) {
       api("POST", "/api/admin/logout", {}).then(async () => {
         state.admin = null;
@@ -1904,8 +2340,7 @@ function updatePostcardDeck() {
   const active = state.activePostcard;
   const cards = $$(".postcard[data-postcard]");
   const panels = $$(".postcard-panel[data-postcard-panel]");
-  const drawer = $("#postcard-drawer");
-  const titleEl = $("#drawer-active-title");
+  const groups = $$(".postcard-group[data-postcard-group]");
 
   for (const card of cards) {
     const isThisActive = card.dataset.postcard === active;
@@ -1913,20 +2348,15 @@ function updatePostcardDeck() {
     card.setAttribute("aria-selected", String(isThisActive));
   }
 
-  let hasOpen = false;
+  for (const group of groups) {
+    const isThisActive = group.dataset.postcardGroup === active;
+    group.classList.toggle("is-active", isThisActive);
+  }
+
   for (const panel of panels) {
     const isThisActive = panel.dataset.postcardPanel === active;
     panel.classList.toggle("is-active", isThisActive);
     panel.hidden = !isThisActive;
-    if (isThisActive) hasOpen = true;
-  }
-
-  if (drawer) {
-    drawer.classList.toggle("is-open", hasOpen);
-    drawer.hidden = !hasOpen;
-    if (titleEl && active) {
-      titleEl.textContent = POSTCARD_TITLES[active] || "Section details";
-    }
   }
 }
 
@@ -2242,6 +2672,213 @@ async function openPrice(code, exchange = null) {
   if (state.priceCode === code && dialog.open) renderPrice();
 }
 
+// ------------------------------------------------------------------ Geolocation, Weather & Time Widget
+
+const DEFAULT_GEO = {
+  suburb: "Sydney",
+  state: "NSW",
+  timeFormat: "12",
+  dateFormat: "DD/MM/YYYY",
+  timezone: "Australia/Sydney",
+  temp: 21,
+  condition: "Mostly Sunny",
+  lat: -33.8688,
+  lon: 151.2093,
+};
+
+const AU_STATE_CAPITALS = {
+  NSW: { suburb: "Sydney", tz: "Australia/Sydney", lat: -33.8688, lon: 151.2093 },
+  VIC: { suburb: "Melbourne", tz: "Australia/Melbourne", lat: -37.8136, lon: 144.9631 },
+  QLD: { suburb: "Brisbane", tz: "Australia/Brisbane", lat: -27.4698, lon: 153.0251 },
+  WA: { suburb: "Perth", tz: "Australia/Perth", lat: -31.9505, lon: 115.8605 },
+  SA: { suburb: "Adelaide", tz: "Australia/Adelaide", lat: -34.9285, lon: 138.6007 },
+  TAS: { suburb: "Hobart", tz: "Australia/Hobart", lat: -42.8821, lon: 147.3272 },
+  ACT: { suburb: "Canberra", tz: "Australia/Sydney", lat: -35.2809, lon: 149.13 },
+  NT: { suburb: "Darwin", tz: "Australia/Darwin", lat: -12.4634, lon: 130.8456 },
+};
+
+function weatherCodeToText(code) {
+  if (code === 0) return "Clear Sky";
+  if (code === 1) return "Mainly Clear";
+  if (code === 2) return "Partly Cloudy";
+  if (code === 3) return "Overcast";
+  if ([45, 48].includes(code)) return "Foggy";
+  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return "Showers";
+  if ([71, 73, 75, 85, 86].includes(code)) return "Snow";
+  if ([95, 96, 99].includes(code)) return "Thunderstorm";
+  return "Fine";
+}
+
+function loadGeoSettings() {
+  try {
+    const raw = localStorage.getItem("geo_settings");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state.geo = { ...DEFAULT_GEO, ...parsed };
+      return;
+    }
+  } catch (_) {}
+  state.geo = { ...DEFAULT_GEO };
+}
+
+function saveGeoSettings(geo) {
+  state.geo = { ...state.geo, ...geo };
+  try {
+    localStorage.setItem("geo_settings", JSON.stringify(state.geo));
+  } catch (_) {}
+}
+
+function formatGeoTime(date = new Date()) {
+  const geo = state.geo || DEFAULT_GEO;
+  try {
+    const options = {
+      timeZone: geo.timezone || "Australia/Sydney",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: geo.timeFormat !== "24",
+    };
+    const timeStr = new Intl.DateTimeFormat("en-AU", options).format(date);
+    const tzShort =
+      new Intl.DateTimeFormat("en-AU", { timeZone: geo.timezone || "Australia/Sydney", timeZoneName: "short" })
+        .formatToParts(date)
+        .find((p) => p.type === "timeZoneName")?.value || "";
+    return `${timeStr} ${tzShort}`.trim();
+  } catch (_) {
+    return date.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: geo.timeFormat !== "24" });
+  }
+}
+
+function renderGeoBar() {
+  const geo = state.geo || DEFAULT_GEO;
+  const suburbEl = $("#geo-bar-suburb-text");
+  if (suburbEl) {
+    suburbEl.textContent = `${geo.suburb}, ${geo.state}`;
+  }
+  const weatherEl = $("#geo-bar-weather-text");
+  if (weatherEl) {
+    weatherEl.textContent = `${geo.temp}°C ${geo.condition}`;
+  }
+  const timeEl = $("#geo-bar-time-text");
+  if (timeEl) {
+    timeEl.textContent = formatGeoTime();
+  }
+}
+
+function renderGeoDialog() {
+  const geo = state.geo || DEFAULT_GEO;
+  const suburbInput = $("#geo-suburb-input");
+  if (suburbInput) suburbInput.value = geo.suburb;
+  const stateSelect = $("#geo-state-select");
+  if (stateSelect) stateSelect.value = geo.state;
+  const tzSelect = $("#geo-timezone-select");
+  if (tzSelect) tzSelect.value = geo.timezone;
+
+  const r12 = $(`input[name="timeFormat"][value="12"]`);
+  const r24 = $(`input[name="timeFormat"][value="24"]`);
+  if (geo.timeFormat === "24") {
+    if (r24) r24.checked = true;
+  } else {
+    if (r12) r12.checked = true;
+  }
+
+  const rAu = $(`input[name="dateFormat"][value="DD/MM/YYYY"]`);
+  const rIso = $(`input[name="dateFormat"][value="YYYY-MM-DD"]`);
+  if (geo.dateFormat === "YYYY-MM-DD") {
+    if (rIso) rIso.checked = true;
+  } else {
+    if (rAu) rAu.checked = true;
+  }
+
+  const tempEl = $("#geo-weather-temp");
+  if (tempEl) tempEl.textContent = `${geo.temp}°C`;
+  const condEl = $("#geo-weather-cond");
+  if (condEl) condEl.textContent = geo.condition;
+  const locEl = $("#geo-weather-location");
+  if (locEl) locEl.textContent = `${geo.suburb}, ${geo.state}`;
+}
+
+async function updateGeoWeather(lat, lon) {
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.current) {
+      state.geo.temp = Math.round(data.current.temperature_2m);
+      state.geo.condition = weatherCodeToText(data.current.weather_code);
+      saveGeoSettings(state.geo);
+      renderGeoBar();
+      renderGeoDialog();
+    }
+  } catch (_) {
+    // Keep fallback or cached value
+  }
+}
+
+function openGeoDialog() {
+  renderGeoDialog();
+  const dialog = $("#geo-dialog");
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+function closeGeoDialog() {
+  const dialog = $("#geo-dialog");
+  if (dialog && dialog.open) dialog.close();
+}
+
+function autoDetectGeoLocation() {
+  if (!navigator.geolocation) {
+    announce("Geolocation is not supported by your browser", "error");
+    return;
+  }
+  const btn = $("#geo-autolocate-btn");
+  if (btn) btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      let closestState = "NSW";
+      let minDist = Infinity;
+      for (const [st, info] of Object.entries(AU_STATE_CAPITALS)) {
+        const d = Math.hypot(lat - info.lat, lon - info.lon);
+        if (d < minDist) {
+          minDist = d;
+          closestState = st;
+        }
+      }
+      state.geo.state = closestState;
+      state.geo.suburb = AU_STATE_CAPITALS[closestState].suburb;
+      state.geo.timezone = AU_STATE_CAPITALS[closestState].tz;
+      state.geo.lat = lat;
+      state.geo.lon = lon;
+
+      saveGeoSettings(state.geo);
+      renderGeoDialog();
+      renderGeoBar();
+      await updateGeoWeather(lat, lon);
+      if (btn) btn.disabled = false;
+      announce(`Detected location: ${state.geo.suburb}, ${state.geo.state}`);
+    },
+    (err) => {
+      if (btn) btn.disabled = false;
+      announce("Unable to detect location: " + err.message, "error");
+    },
+    { timeout: 8000 }
+  );
+}
+
+function initGeoWidget() {
+  loadGeoSettings();
+  renderGeoBar();
+  setInterval(() => {
+    const timeEl = $("#geo-bar-time-text");
+    if (timeEl) timeEl.textContent = formatGeoTime();
+  }, 15000);
+  const geo = state.geo || DEFAULT_GEO;
+  updateGeoWeather(geo.lat, geo.lon);
+}
+
 // ------------------------------------------------------------------ events
 
 function bindEvents() {
@@ -2264,6 +2901,21 @@ function bindEvents() {
     const price = event.target.closest("[data-price]");
     if (price) return openPrice(price.dataset.price, price.dataset.exchange);
     if (event.target.closest("[data-close-price]")) return $("#price-dialog").close();
+    if (event.target.closest("#geo-bar")) {
+      event.preventDefault();
+      openGeoDialog();
+      return;
+    }
+    if (event.target.closest("[data-close-geo]")) {
+      event.preventDefault();
+      closeGeoDialog();
+      return;
+    }
+    if (event.target.closest("#geo-autolocate-btn")) {
+      event.preventDefault();
+      autoDetectGeoLocation();
+      return;
+    }
     const open = event.target.closest("[data-open]");
     if (open) return openDetail(open.dataset.open);
     const sort = event.target.closest("[data-sort]");
@@ -2283,11 +2935,10 @@ function bindEvents() {
       selectPostcard(postcardBtn.dataset.postcard);
       return;
     }
-    const drawerCloseBtn = event.target.closest("#drawer-close-btn");
-    if (drawerCloseBtn) {
+    const collapseBtn = event.target.closest('#drawer-close-btn, [data-action="collapse-postcard"]');
+    if (collapseBtn) {
       event.preventDefault();
-      state.activePostcard = null;
-      updatePostcardDeck();
+      selectPostcard(null);
       return;
     }
     if (event.target.closest('[data-action="copy-md"]')) copyMarkdown();
@@ -2483,12 +3134,41 @@ function bindEvents() {
   // Keep sticky offsets in step with the app bar, whose height changes as it wraps.
   const appbar = $("#appbar");
   new ResizeObserver(() => document.documentElement.style.setProperty("--appbar-h", `${appbar.offsetHeight}px`)).observe(appbar);
+
+  const geoForm = $("#geo-settings-form");
+  if (geoForm) {
+    geoForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const formData = new FormData(geoForm);
+      const suburb = (formData.get("suburb") || "").trim() || state.geo.suburb;
+      const st = formData.get("state") || state.geo.state;
+      const timeFormat = formData.get("timeFormat") || "12";
+      const dateFormat = formData.get("dateFormat") || "DD/MM/YYYY";
+      const timezone = formData.get("timezone") || state.geo.timezone;
+
+      const stateInfo = AU_STATE_CAPITALS[st] || AU_STATE_CAPITALS.NSW;
+      state.geo.suburb = suburb;
+      state.geo.state = st;
+      state.geo.timeFormat = timeFormat;
+      state.geo.dateFormat = dateFormat;
+      state.geo.timezone = timezone;
+      state.geo.lat = stateInfo.lat;
+      state.geo.lon = stateInfo.lon;
+
+      saveGeoSettings(state.geo);
+      renderGeoBar();
+      updateGeoWeather(state.geo.lat, state.geo.lon);
+      closeGeoDialog();
+      announce("Regional & time settings saved");
+    });
+  }
 }
 
 // ------------------------------------------------------------------ start
 
 async function init() {
   applyThemeLabel();
+  initGeoWidget();
   // Google sign-in returns here with ?auth_error= when it fails; show it once, then tidy the URL.
   const params = new URLSearchParams(location.search);
   if (params.has("auth_error")) {

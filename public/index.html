@@ -47,6 +47,8 @@
     <symbol id="i-up" viewBox="0 0 12 12"><path d="M6 2.5l4 6H2z" fill="currentColor"/></symbol>
     <symbol id="i-down" viewBox="0 0 12 12"><path d="M6 9.5l-4-6h8z" fill="currentColor"/></symbol>
     <symbol id="i-chart" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></g></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="currentColor"/></symbol>
+    <symbol id="i-weather" viewBox="0 0 24 24"><path d="M6.5 19a4.5 4.5 0 0 1-.4-8.98A6 6 0 0 1 17.5 8a5.5 5.5 0 0 1 4.5 5.4c0 3.1-2.5 5.6-5.6 5.6H6.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="5.5" r="1.5" fill="currentColor"/></symbol>
   </svg>
 
   <div class="app">
@@ -144,137 +146,190 @@
       </div>
 
       <section class="view deck-view" id="overview" data-view="overview" aria-label="Intelligence Dashboard">
-        <!-- 4 Postcard Deck (Desktop / Laptop) -->
-        <div class="postcard-deck" id="postcard-deck" role="tablist" aria-label="Intelligence Sections">
-          <!-- Postcard 1: Daily Brief -->
-          <button type="button" class="postcard" id="postcard-brief" role="tab" aria-selected="false" aria-controls="panel-brief" data-postcard="brief" data-agent-id="postcard_brief" data-testid="postcard_brief">
-            <span class="postcard-stamp" aria-hidden="true">INTEL · 24H</span>
-            <div class="postcard-header">
-              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-sparkle"/></svg></span>
-              <span class="postcard-tag">Executive Summary</span>
-            </div>
-            <h3 class="postcard-title">Daily Brief</h3>
-            <p class="postcard-desc">AI intelligence brief, contract correlations, and industry movements</p>
-            <div class="postcard-footer">
-              <span class="postcard-stat" id="postcard-brief-stat">Past 7 days analysis</span>
-              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
-            </div>
-          </button>
-
-          <!-- Postcard 2: Sectors -->
-          <button type="button" class="postcard" id="postcard-sectors" role="tab" aria-selected="false" aria-controls="panel-sectors" data-postcard="sectors" data-agent-id="postcard_sectors" data-testid="postcard_sectors">
-            <span class="postcard-stamp" aria-hidden="true">SECTORS</span>
-            <div class="postcard-header">
-              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-chart"/></svg></span>
-              <span class="postcard-tag">Sector Breakdown</span>
-            </div>
-            <h3 class="postcard-title">Confirmed by Sector</h3>
-            <p class="postcard-desc">Disclosed government contract value and volume by industry sector</p>
-            <div class="postcard-footer">
-              <span class="postcard-stat" id="postcard-sectors-stat">Active industry sectors</span>
-              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
-            </div>
-          </button>
-
-          <!-- Postcard 3: Confirmed Contracts -->
-          <button type="button" class="postcard" id="postcard-confirmed" role="tab" aria-selected="false" aria-controls="panel-confirmed" data-postcard="confirmed" data-agent-id="postcard_confirmed" data-testid="postcard_confirmed">
-            <span class="postcard-stamp" aria-hidden="true">CONFIRMED</span>
-            <div class="postcard-header">
-              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span>
-              <span class="postcard-tag">Confirmed Contracts</span>
-            </div>
-            <h3 class="postcard-title">Confirmed Contracts</h3>
-            <p class="postcard-desc">Verified awards, signed agreements, and procurement disclosures</p>
-            <div class="postcard-footer">
-              <span class="postcard-stat" id="postcard-confirmed-stat">Government awards</span>
-              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
-            </div>
-          </button>
-
-          <!-- Postcard 4: Upcoming Contracts -->
-          <button type="button" class="postcard" id="postcard-upcoming" role="tab" aria-selected="false" aria-controls="panel-upcoming" data-postcard="upcoming" data-agent-id="postcard_upcoming" data-testid="postcard_upcoming">
-            <span class="postcard-stamp" aria-hidden="true">UPCOMING</span>
-            <div class="postcard-header">
-              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-clock"/></svg></span>
-              <span class="postcard-tag">Upcoming Contracts</span>
-            </div>
-            <h3 class="postcard-title">Upcoming Contracts</h3>
-            <p class="postcard-desc">Next 7 days tender forecasts, open RFPs, shortlists, and milestones</p>
-            <div class="postcard-footer">
-              <span class="postcard-stat" id="postcard-upcoming-stat">Forward opportunities</span>
-              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
-            </div>
-          </button>
-        </div>
-
-        <!-- Information Drawer directly below the 4 postcards -->
-        <div class="postcard-drawer" id="postcard-drawer" hidden aria-live="polite">
-          <div class="drawer-top-bar">
-            <div class="drawer-title" id="drawer-active-title">Section details</div>
-            <button type="button" class="btn btn-sm btn-ghost drawer-close-btn" id="drawer-close-btn" aria-label="Close expanded section" data-agent-id="btn_close_drawer" data-testid="btn_close_drawer">
-              <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
-              <span>Close</span>
+        <!-- 4 Postcard Deck with Respective Expandable Panels -->
+        <div class="postcard-deck" id="postcard-deck" role="region" aria-label="Intelligence Sections">
+          <!-- Group 1: Daily Brief -->
+          <div class="postcard-group" id="group-brief" data-postcard-group="brief">
+            <button type="button" class="postcard" id="postcard-brief" role="tab" aria-selected="false" aria-controls="panel-brief" data-postcard="brief" data-agent-id="postcard_brief" data-testid="postcard_brief">
+              <span class="postcard-stamp" aria-hidden="true">INTEL · 24H</span>
+              <div class="postcard-header">
+                <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-sparkle"/></svg></span>
+                <span class="postcard-tag">Executive Summary</span>
+              </div>
+              <h3 class="postcard-title">Daily Brief</h3>
+              <p class="postcard-desc">AI intelligence brief, contract correlations, and industry movements</p>
+              <div class="postcard-footer">
+                <span class="postcard-stat" id="postcard-brief-stat">Past 7 days analysis</span>
+                <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+              </div>
             </button>
-          </div>
-
-          <!-- Panel 1: Daily Brief -->
-          <div class="postcard-panel" id="panel-brief" data-postcard-panel="brief" hidden>
-            <article class="card daily-brief-card" id="daily-brief-card" aria-labelledby="overview-title">
-              <div class="report-head">
-                <p class="eyebrow" id="report-eyebrow">Government contract intelligence</p>
-                <h1 id="overview-title">Daily brief</h1>
-                <p class="report-meta" id="report-meta"></p>
+            <div class="postcard-panel" id="panel-brief" data-postcard-panel="brief" hidden>
+              <div class="panel-top-bar">
+                <div class="panel-title">
+                  <svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg>
+                  <span>Daily Brief · Executive Intelligence</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse Daily Brief" data-agent-id="btn_collapse_brief" data-testid="btn_collapse_brief">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse</span>
+                </button>
               </div>
-              <div class="brief-narrative" id="brief-narrative" aria-label="Executive Intelligence Summary"></div>
-              <div class="notices" id="notices"></div>
-              <div class="kpis" id="kpis" aria-live="polite"></div>
-            </article>
-          </div>
-
-          <!-- Panel 2: Sectors -->
-          <div class="postcard-panel" id="panel-sectors" data-postcard-panel="sectors" hidden>
-            <article class="card" id="sectors-card" aria-labelledby="sectors-title">
-              <div class="card-head">
-                <div>
-                  <h2 class="card-title" id="sectors-title">Confirmed items by sector</h2>
-                  <p class="card-sub">Number of confirmed contracts in view, with disclosed value (AUD)</p>
+              <article class="card daily-brief-card" id="daily-brief-card" aria-labelledby="overview-title">
+                <div class="report-head">
+                  <p class="eyebrow" id="report-eyebrow">Government contract intelligence</p>
+                  <h1 id="overview-title">Daily brief</h1>
+                  <p class="report-meta" id="report-meta"></p>
                 </div>
+                <div class="brief-narrative" id="brief-narrative" aria-label="Executive Intelligence Summary"></div>
+                <div class="notices" id="notices"></div>
+                <div class="kpis" id="kpis" aria-live="polite"></div>
+              </article>
+              <div class="panel-bottom-bar">
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse section">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse section</span>
+                </button>
               </div>
-              <div class="bars" id="sector-bars" role="list"></div>
-            </article>
+            </div>
           </div>
 
-          <!-- Panel 3: Confirmed -->
-          <div class="postcard-panel" id="panel-confirmed" data-postcard-panel="confirmed" hidden>
-            <section class="card-table-section" id="confirmed" aria-labelledby="confirmed-title">
-              <header class="section-head">
-                <div>
-                  <h2 id="confirmed-title">Confirmed Contracts</h2>
-                  <p class="section-sub">Past 7 days: awards, signed agreements and purchase orders</p>
+          <!-- Group 2: Sectors -->
+          <div class="postcard-group" id="group-sectors" data-postcard-group="sectors">
+            <button type="button" class="postcard" id="postcard-sectors" role="tab" aria-selected="false" aria-controls="panel-sectors" data-postcard="sectors" data-agent-id="postcard_sectors" data-testid="postcard_sectors">
+              <span class="postcard-stamp" aria-hidden="true">SECTORS</span>
+              <div class="postcard-header">
+                <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-chart"/></svg></span>
+                <span class="postcard-tag">Sector Breakdown</span>
+              </div>
+              <h3 class="postcard-title">Confirmed by Sector</h3>
+              <p class="postcard-desc">Disclosed government contract value and volume by industry sector</p>
+              <div class="postcard-footer">
+                <span class="postcard-stat" id="postcard-sectors-stat">Active industry sectors</span>
+                <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+              </div>
+            </button>
+            <div class="postcard-panel" id="panel-sectors" data-postcard-panel="sectors" hidden>
+              <div class="panel-top-bar">
+                <div class="panel-title">
+                  <svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg>
+                  <span>Sector Breakdown · Confirmed Contracts by Category</span>
                 </div>
-                <div class="section-actions">
-                  <button class="btn btn-sm btn-ghost toggle-all-btn" type="button" id="btn-toggle-all-confirmed" data-action="toggle-all-confirmed" data-agent-id="btn_toggle_all_confirmed" data-testid="btn_toggle_all_confirmed">
-                    <span>Expand all</span>
-                  </button>
-                  <button class="btn btn-ghost" type="button" data-action="copy-md" aria-label="Copy the brief as Markdown" data-agent-id="btn_copy_markdown" data-testid="btn_copy_markdown"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy Markdown</span></button>
-                  <a class="btn btn-ghost" data-action="csv" href="#" download aria-label="Download the report as CSV" data-agent-id="link_download_csv" data-testid="link_download_csv"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>CSV</span></a>
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse Sectors" data-agent-id="btn_collapse_sectors" data-testid="btn_collapse_sectors">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse</span>
+                </button>
+              </div>
+              <article class="card" id="sectors-card" aria-labelledby="sectors-title">
+                <div class="card-head">
+                  <div>
+                    <h2 class="card-title" id="sectors-title">Confirmed items by sector</h2>
+                    <p class="card-sub">Number of confirmed contracts in view, with disclosed value (AUD)</p>
+                  </div>
                 </div>
-              </header>
-              <div class="table-wrap" id="confirmed-table-wrap"><table class="data-table" id="confirmed-table" role="table"></table></div>
-            </section>
+                <div class="bars" id="sector-bars" role="list"></div>
+              </article>
+              <div class="panel-bottom-bar">
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse section">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse section</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <!-- Panel 4: Upcoming -->
-          <div class="postcard-panel" id="panel-upcoming" data-postcard-panel="upcoming" hidden>
-            <section class="card-table-section" id="upcoming" aria-labelledby="upcoming-title">
-              <header class="section-head">
-                <div>
-                  <h2 id="upcoming-title">Upcoming Contracts</h2>
-                  <p class="section-sub">Next 7 days: tenders, shortlists, preferred bidders and expected milestones</p>
+          <!-- Group 3: Confirmed Contracts -->
+          <div class="postcard-group" id="group-confirmed" data-postcard-group="confirmed">
+            <button type="button" class="postcard" id="postcard-confirmed" role="tab" aria-selected="false" aria-controls="panel-confirmed" data-postcard="confirmed" data-agent-id="postcard_confirmed" data-testid="postcard_confirmed">
+              <span class="postcard-stamp" aria-hidden="true">CONFIRMED</span>
+              <div class="postcard-header">
+                <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span>
+                <span class="postcard-tag">Confirmed Contracts</span>
+              </div>
+              <h3 class="postcard-title">Confirmed Contracts</h3>
+              <p class="postcard-desc">Verified awards, signed agreements, and procurement disclosures</p>
+              <div class="postcard-footer">
+                <span class="postcard-stat" id="postcard-confirmed-stat">Government awards</span>
+                <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+              </div>
+            </button>
+            <div class="postcard-panel" id="panel-confirmed" data-postcard-panel="confirmed" hidden>
+              <div class="panel-top-bar">
+                <div class="panel-title">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+                  <span>Confirmed Contracts</span>
                 </div>
-              </header>
-              <div class="table-wrap" id="upcoming-table-wrap"><table class="data-table" id="upcoming-table" role="table"></table></div>
-            </section>
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse Confirmed Contracts" data-agent-id="btn_collapse_confirmed" data-testid="btn_collapse_confirmed">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse</span>
+                </button>
+              </div>
+              <section class="card-table-section" id="confirmed" aria-labelledby="confirmed-title">
+                <header class="section-head">
+                  <div>
+                    <h2 id="confirmed-title">Confirmed Contracts</h2>
+                    <p class="section-sub">Past 7 days: awards, signed agreements and purchase orders</p>
+                  </div>
+                  <div class="section-actions">
+                    <button class="btn btn-sm btn-ghost toggle-all-btn" type="button" id="btn-toggle-all-confirmed" data-action="toggle-all-confirmed" data-agent-id="btn_toggle_all_confirmed" data-testid="btn_toggle_all_confirmed">
+                      <span>Expand all</span>
+                    </button>
+                    <button class="btn btn-ghost" type="button" data-action="copy-md" aria-label="Copy the brief as Markdown" data-agent-id="btn_copy_markdown" data-testid="btn_copy_markdown"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy Markdown</span></button>
+                    <a class="btn btn-ghost" data-action="csv" href="#" download aria-label="Download the report as CSV" data-agent-id="link_download_csv" data-testid="link_download_csv"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>CSV</span></a>
+                  </div>
+                </header>
+                <div class="table-wrap" id="confirmed-table-wrap"><table class="data-table" id="confirmed-table" role="table"></table></div>
+              </section>
+              <div class="panel-bottom-bar">
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse section">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse section</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Group 4: Upcoming Contracts -->
+          <div class="postcard-group" id="group-upcoming" data-postcard-group="upcoming">
+            <button type="button" class="postcard" id="postcard-upcoming" role="tab" aria-selected="false" aria-controls="panel-upcoming" data-postcard="upcoming" data-agent-id="postcard_upcoming" data-testid="postcard_upcoming">
+              <span class="postcard-stamp" aria-hidden="true">UPCOMING</span>
+              <div class="postcard-header">
+                <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-clock"/></svg></span>
+                <span class="postcard-tag">Upcoming Contracts</span>
+              </div>
+              <h3 class="postcard-title">Upcoming Contracts</h3>
+              <p class="postcard-desc">Next 7 days tender forecasts, open RFPs, shortlists, and milestones</p>
+              <div class="postcard-footer">
+                <span class="postcard-stat" id="postcard-upcoming-stat">Forward opportunities</span>
+                <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+              </div>
+            </button>
+            <div class="postcard-panel" id="panel-upcoming" data-postcard-panel="upcoming" hidden>
+              <div class="panel-top-bar">
+                <div class="panel-title">
+                  <svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>
+                  <span>Upcoming Contracts</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse Upcoming Contracts" data-agent-id="btn_collapse_upcoming" data-testid="btn_collapse_upcoming">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse</span>
+                </button>
+              </div>
+              <section class="card-table-section" id="upcoming" aria-labelledby="upcoming-title">
+                <header class="section-head">
+                  <div>
+                    <h2 id="upcoming-title">Upcoming Contracts</h2>
+                    <p class="section-sub">Next 7 days: tenders, shortlists, preferred bidders and expected milestones</p>
+                  </div>
+                </header>
+                <div class="table-wrap" id="upcoming-table-wrap"><table class="data-table" id="upcoming-table" role="table"></table></div>
+              </section>
+              <div class="panel-bottom-bar">
+                <button type="button" class="btn btn-sm btn-ghost panel-collapse-btn" data-action="collapse-postcard" aria-label="Collapse section">
+                  <svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>
+                  <span>Collapse section</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -405,6 +460,24 @@
       </footer>
     </main>
 
+    <!-- Thin Geolocation, Weather & Time Footer Bar Button -->
+    <button type="button" class="geo-bar" id="geo-bar" aria-haspopup="dialog" aria-controls="geo-dialog" aria-label="Regional and time settings" data-agent-id="btn_open_geo" data-testid="btn_open_geo">
+      <span class="geo-bar-item" id="geo-bar-location">
+        <svg class="icon geo-icon" aria-hidden="true"><use href="#i-pin"/></svg>
+        <span id="geo-bar-suburb-text">Sydney, NSW</span>
+      </span>
+      <span class="geo-bar-sep" aria-hidden="true">·</span>
+      <span class="geo-bar-item" id="geo-bar-weather">
+        <svg class="icon geo-icon" aria-hidden="true"><use href="#i-weather"/></svg>
+        <span id="geo-bar-weather-text">21°C Fine</span>
+      </span>
+      <span class="geo-bar-sep" aria-hidden="true">·</span>
+      <span class="geo-bar-item" id="geo-bar-time">
+        <svg class="icon geo-icon" aria-hidden="true"><use href="#i-clock"/></svg>
+        <span id="geo-bar-time-text">7:30 AM AEST</span>
+      </span>
+    </button>
+
     <nav class="bottomnav" aria-label="Sections">
       <a href="#overview" data-nav="overview" data-agent-id="nav_overview_bottom" data-testid="nav_overview_bottom"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span>Brief</span></a>
       <a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed_bottom" data-testid="nav_confirmed_bottom"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></a>
@@ -446,6 +519,110 @@
         <button class="icon-btn" type="button" data-close-price aria-label="Close price history" data-agent-id="btn_close_price" data-testid="btn_close_price"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       </header>
       <div class="dialog-body" id="price-body"></div>
+    </div>
+  </dialog>
+
+  <!-- Centered Responsive Geolocation, Weather & Time Settings Popup (No Scrollbar) -->
+  <dialog class="dialog geo-dialog" id="geo-dialog" aria-labelledby="geo-dialog-title" data-agent-id="dialog_geo" data-testid="dialog_geo">
+    <div class="dialog-inner">
+      <header class="dialog-head">
+        <div class="dialog-heading">
+          <p class="eyebrow">Regional & Time Preferences</p>
+          <h2 id="geo-dialog-title">Location, Weather & Time</h2>
+        </div>
+        <button class="icon-btn" type="button" data-close-geo aria-label="Close settings" data-agent-id="btn_close_geo_dialog" data-testid="btn_close_geo_dialog">
+          <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+        </button>
+      </header>
+      <form class="dialog-body geo-dialog-body" id="geo-settings-form" novalidate data-agent-id="form_geo_settings" data-testid="form_geo_settings">
+        <!-- Location Section -->
+        <fieldset class="geo-fieldset">
+          <legend class="geo-legend">Location</legend>
+          <div class="geo-form-row">
+            <div class="geo-form-group flex-1">
+              <label for="geo-suburb-input">Suburb / City</label>
+              <input id="geo-suburb-input" name="suburb" type="text" placeholder="e.g. Sydney, Parramatta" autocomplete="address-level2" data-agent-id="input_geo_suburb" data-testid="input_geo_suburb">
+            </div>
+            <div class="geo-form-group geo-state-group">
+              <label for="geo-state-select">State</label>
+              <select id="geo-state-select" name="state" data-agent-id="select_geo_state" data-testid="select_geo_state">
+                <option value="NSW">NSW</option>
+                <option value="VIC">VIC</option>
+                <option value="QLD">QLD</option>
+                <option value="WA">WA</option>
+                <option value="SA">SA</option>
+                <option value="TAS">TAS</option>
+                <option value="ACT">ACT</option>
+                <option value="NT">NT</option>
+              </select>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost geo-locate-btn" id="geo-autolocate-btn" data-agent-id="btn_geo_autolocate" data-testid="btn_geo_autolocate">
+            <svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>
+            <span>Auto-detect my device location</span>
+          </button>
+        </fieldset>
+
+        <!-- Weather Status Card -->
+        <div class="geo-weather-card" id="geo-weather-card">
+          <div class="geo-weather-main">
+            <span class="geo-weather-icon" id="geo-weather-symbol"><svg class="icon"><use href="#i-weather"/></svg></span>
+            <div>
+              <div class="geo-weather-temp" id="geo-weather-temp">21°C</div>
+              <div class="geo-weather-cond" id="geo-weather-cond">Mostly Sunny</div>
+            </div>
+          </div>
+          <div class="geo-weather-sub" id="geo-weather-location">Canberra / Sydney</div>
+        </div>
+
+        <!-- Date & Time Format Section -->
+        <fieldset class="geo-fieldset">
+          <legend class="geo-legend">Date, Time & Timezone</legend>
+          <div class="geo-form-row">
+            <div class="geo-form-group flex-1">
+              <label>Time Format</label>
+              <div class="geo-radio-group">
+                <label class="geo-radio-label">
+                  <input type="radio" name="timeFormat" value="12" checked data-agent-id="radio_time_12" data-testid="radio_time_12">
+                  <span>12-hour (7:30 AM)</span>
+                </label>
+                <label class="geo-radio-label">
+                  <input type="radio" name="timeFormat" value="24" data-agent-id="radio_time_24" data-testid="radio_time_24">
+                  <span>24-hour (07:30)</span>
+                </label>
+              </div>
+            </div>
+            <div class="geo-form-group flex-1">
+              <label>Date Format</label>
+              <div class="geo-radio-group">
+                <label class="geo-radio-label">
+                  <input type="radio" name="dateFormat" value="DD/MM/YYYY" checked data-agent-id="radio_date_au" data-testid="radio_date_au">
+                  <span>DD/MM/YYYY</span>
+                </label>
+                <label class="geo-radio-label">
+                  <input type="radio" name="dateFormat" value="YYYY-MM-DD" data-agent-id="radio_date_iso" data-testid="radio_date_iso">
+                  <span>YYYY-MM-DD</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="geo-form-group geo-timezone-group">
+            <label for="geo-timezone-select">Preferred Timezone</label>
+            <select id="geo-timezone-select" name="timezone" data-agent-id="select_geo_timezone" data-testid="select_geo_timezone">
+              <option value="Australia/Sydney">AEST/AEDT (Sydney, Melbourne, Canberra, Hobart)</option>
+              <option value="Australia/Brisbane">AEST (Brisbane - no DST)</option>
+              <option value="Australia/Adelaide">ACST/ACDT (Adelaide, Broken Hill)</option>
+              <option value="Australia/Darwin">ACST (Darwin - no DST)</option>
+              <option value="Australia/Perth">AWST (Perth)</option>
+            </select>
+          </div>
+        </fieldset>
+
+        <div class="geo-dialog-actions">
+          <button type="button" class="btn btn-ghost" data-close-geo data-agent-id="btn_cancel_geo" data-testid="btn_cancel_geo">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-agent-id="btn_save_geo" data-testid="btn_save_geo">Save Settings</button>
+        </div>
+      </form>
     </div>
   </dialog>
 

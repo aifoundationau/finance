@@ -76,10 +76,11 @@ test("with the token system off nothing is locked and no token data is public", 
   assert.deepEqual(publicCommerce(s, wallet(5), "AU"), { tokenSystemEnabled: false });
 });
 
-test("AUD shows only to Australian visitors; each currency follows its own toggle", async () => {
+test("AUD shows only to Australian and NZ visitors; USD to all other countries", async () => {
   await updateSettings({ tokenPriceAud: 3, tokenPriceUsd: 2 });
   let s = await getState();
-  assert.deepEqual(publicCommerce(s, wallet(1), "AU").items[0].price, { aud: 3, usd: 2 });
+  assert.deepEqual(publicCommerce(s, wallet(1), "AU").items[0].price, { aud: 3 });
+  assert.deepEqual(publicCommerce(s, wallet(1), "NZ").items[0].price, { aud: 3 });
   assert.deepEqual(publicCommerce(s, wallet(1), "US").items[0].price, { usd: 2 });
   await updateSettings({ isUsdEnabled: false });
   s = await getState();
@@ -91,10 +92,25 @@ test("item prices are integers, explicit or token amount x token price", async (
   await updateSettings({ tokenPriceAud: 4, tokenPriceUsd: 3 });
   await createItem({ title: "Weekly pack", description: "x", tokenAmount: 5, priceAud: 18 });
   const s = await getState();
-  const pack = publicCommerce(s, wallet(0), "AU").items.find((i) => i.title === "Weekly pack");
-  assert.deepEqual(pack.price, { aud: 18, usd: 15 });
+  const packAu = publicCommerce(s, wallet(0), "AU").items.find((i) => i.title === "Weekly pack");
+  assert.deepEqual(packAu.price, { aud: 18 });
+  const packUs = publicCommerce(s, wallet(0), "US").items.find((i) => i.title === "Weekly pack");
+  assert.deepEqual(packUs.price, { usd: 15 });
   await assert.rejects(createItem({ title: "Bad", tokenAmount: 1.5 }), /whole number/);
   await assert.rejects(deleteItem(DETAILS_ITEM_ID), (err) => err.status === 409);
+});
+
+test("special token amounts by country (geolocated purchasing power parity)", async () => {
+  await updateSettings({
+    countryTokenRates: {
+      KH: 10,
+      TH: 5,
+    },
+  });
+  const s = await getState();
+  assert.equal(publicCommerce(s, wallet(0), "KH").tokensPerUsd, 10);
+  assert.equal(publicCommerce(s, wallet(0), "TH").tokensPerUsd, 5);
+  assert.equal(publicCommerce(s, wallet(0), "US").tokensPerUsd, 1);
 });
 
 test("wallet adjustments are whole numbers and never go negative", async () => {
@@ -109,6 +125,8 @@ test("viewer country: CDN header first, then time zone or language", () => {
   assert.equal(viewerCountry({ headers: { "cf-ipcountry": "us", "x-client-timezone": "Australia/Sydney" } }), "US");
   delete process.env.GEO_COUNTRY_HEADER;
   assert.equal(viewerCountry({ headers: { "x-client-timezone": "Australia/Perth" } }), "AU");
+  assert.equal(viewerCountry({ headers: { "x-client-timezone": "Pacific/Auckland" } }), "NZ");
   assert.equal(viewerCountry({ headers: { "accept-language": "en-AU,en;q=0.9" } }), "AU");
+  assert.equal(viewerCountry({ headers: { "accept-language": "en-NZ,en;q=0.9" } }), "NZ");
   assert.equal(viewerCountry({ headers: { "accept-language": "en-US" } }), null);
 });
