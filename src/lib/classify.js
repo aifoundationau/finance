@@ -46,7 +46,24 @@ const SECTOR_RULES = [
   ["Services", /\b(?:consult(?:ing|ancy|ants?)|advisory|facilities management|cleaning|security services|labour hire|recruitment|maintenance services|outsourc\w*|call cent(?:re|er)|professional services|training|catering)\b/i],
 ];
 
+export const SPECULATION_RE =
+  /\b(?:speculat\w*|rumou?r\w*|unconfirmed|hypothetical|touted|tipped|poised to|in talks|talks resume|eyes|eyeing|might win|could win|gig guide|headhunted|proposed (?:mine|project|deal|plan|development)|approves proposed)\b/i;
+
+export const UNNAMED_ENTITY_RE =
+  /^(?:not named|unnamed|n\/a|none|unknown|tbc|tba|various|multiple|undisclosed|-|—|agency|contractors?|suppliers?|vendors?|companies|firms?)$/i;
+
+export function isNamed(s) {
+  if (!s || typeof s !== "string") return false;
+  const trimmed = s.trim();
+  return trimmed.length > 0 && !UNNAMED_ENTITY_RE.test(trimmed);
+}
+
+export function isSpeculative(text = "") {
+  return SPECULATION_RE.test(text);
+}
+
 export function exclusionReason(text) {
+  if (isSpeculative(text)) return "speculation";
   if (GRANT_RE.test(text) && !HAS_PROCUREMENT.test(text)) return "grant";
   if (WAGES_RE.test(text)) return "wages";
   if (PERMIT_RE.test(text)) return "resource-permit";
@@ -108,6 +125,7 @@ export function mentionedAsCounterparty(text, matched) {
 }
 
 export function contractStatus(text = "") {
+  if (isSpeculative(text)) return { status: null, stage: null };
   if (FORWARD_RE.test(text)) return { status: "forward", stage: forwardStage(text) };
   if (CONFIRMED_RE.test(text)) {
     return { status: "confirmed", stage: /\b(?:extend|extension|renew|variation)/i.test(text) ? "extension" : "awarded" };

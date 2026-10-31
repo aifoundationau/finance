@@ -1,5 +1,6 @@
 import { fetchJson } from "../lib/http.js";
 import { viewerCountry } from "../commerce.js";
+import { resolveExchange } from "../../public/shared/exchanges.js";
 
 // Daily closes for ASX and overseas listings (Yahoo Finance chart feed, delayed), shown in the
 // viewer's local currency at today's ECB reference rate (Frankfurter).
@@ -30,20 +31,26 @@ const fxCache = new Map();
 
 /** Maps an exchange + ticker or symbol into a Yahoo Finance symbol. */
 export function yahooSymbol(code, exchange = null) {
-  const c = code.trim().toUpperCase();
+  let c = code.trim().toUpperCase();
   if (exchange) {
+    const resolved = resolveExchange(exchange);
+    if (resolved && resolved.yahoo !== undefined) {
+      if (resolved.yahoo === "") return c;
+      const clean = c.endsWith(".") ? c.slice(0, -1) : c;
+      return `${clean}${resolved.yahoo}`;
+    }
     const ex = exchange.trim().toUpperCase();
     if (ex === "ASX") return `${c}.AX`;
     if (ex === "NYSE" || ex === "NASDAQ" || ex === "AMEX") return c;
-    if (ex === "LSE") return `${c.endsWith(".") ? c.slice(0, -1) : c}.L`;
+    if (ex === "LSE" || ex === "LON") return `${c.endsWith(".") ? c.slice(0, -1) : c}.L`;
     if (ex === "TSX") return `${c}.TO`;
     if (ex === "EPA") return `${c}.PA`;
     if (ex === "ETR") return `${c}.DE`;
     if (ex === "STO") return `${c}.ST`;
-    if (ex === "OSE") return `${c}.OL`;
+    if (ex === "OSE" || ex === "OSL") return `${c}.OL`;
     if (ex === "BIT") return `${c}.MI`;
     if (ex === "KRX") return `${c}.KS`;
-    if (ex === "NZX") return `${c}.NZ`;
+    if (ex === "NZX" || ex === "NZE") return `${c}.NZ`;
     if (ex === "SGX") return `${c}.SI`;
   }
   // If code contains colon like "NYSE:LMT" or "LSE:BA."

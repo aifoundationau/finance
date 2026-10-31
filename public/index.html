@@ -46,6 +46,7 @@
     <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></g></symbol>
     <symbol id="i-up" viewBox="0 0 12 12"><path d="M6 2.5l4 6H2z" fill="currentColor"/></symbol>
     <symbol id="i-down" viewBox="0 0 12 12"><path d="M6 9.5l-4-6h8z" fill="currentColor"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></g></symbol>
   </svg>
 
   <div class="app">
@@ -54,6 +55,16 @@
         <svg class="brand-mark" aria-hidden="true"><use href="#i-logo"/></svg>
         <span class="brand-text"><strong>MY ASX Options</strong><small>Gov Contract Radar</small></span>
       </a>
+
+      <nav class="appbar-nav" id="appbar-nav" aria-label="Sections">
+        <ul class="nav-list">
+          <li><a href="#overview" data-nav="overview" data-agent-id="nav_overview" data-testid="nav_overview"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span class="nav-label">Overview</span></a></li>
+          <li><a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed" data-testid="nav_confirmed"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span class="nav-label">Confirmed</span><span class="nav-count" data-count="confirmed"></span></a></li>
+          <li><a href="#upcoming" data-nav="upcoming" data-agent-id="nav_upcoming" data-testid="nav_upcoming"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="nav-label">Upcoming</span><span class="nav-count" data-count="upcoming"></span></a></li>
+          <li><a href="#takeaways" data-nav="takeaways" data-agent-id="nav_takeaways" data-testid="nav_takeaways"><svg class="icon" aria-hidden="true"><use href="#i-bulb"/></svg><span class="nav-label">Key takeaways</span></a></li>
+        </ul>
+      </nav>
+
       <div class="appbar-tools">
         <div class="report-picker">
           <label for="report-select" class="visually-hidden">Report</label>
@@ -69,13 +80,35 @@
           <svg class="icon" aria-hidden="true"><use href="#i-theme"/></svg>
         </button>
       </div>
-      <div class="appbar-account">
-        <a class="btn btn-ghost btn-google-signin" id="signin-btn" href="/auth/google" hidden aria-label="Sign in with Google" title="New here? Sign in with Google to join as a supporter." data-agent-id="btn_sign_in" data-testid="btn_sign_in">
-          <svg class="icon google-icon" aria-hidden="true"><use href="#i-google"/></svg><span class="btn-text">Sign in with Google</span>
+      <div class="appbar-account" id="appbar-account">
+        <a class="btn-google-signin" id="signin-btn" href="/auth/google" hidden aria-label="Sign in with Google" title="Sign in with Google" data-agent-id="btn_sign_in" data-testid="btn_sign_in">
+          <svg class="google-icon" aria-hidden="true"><use href="#i-google"/></svg>
         </a>
-        <button class="account-btn" id="account-btn" type="button" hidden aria-haspopup="dialog" data-agent-id="btn_open_account" data-testid="btn_open_account">
-          <span class="avatar" id="account-initial" aria-hidden="true"></span><span class="btn-text" id="account-name"></span>
+        <button class="account-btn" id="account-btn" type="button" hidden aria-haspopup="menu" aria-expanded="false" aria-controls="account-dropdown" data-agent-id="btn_open_account" data-testid="btn_open_account">
+          <img class="avatar-img" id="account-avatar" alt="" referrerpolicy="no-referrer" hidden />
+          <span class="avatar" id="account-initial" aria-hidden="true"></span>
         </button>
+        <div class="account-dropdown" id="account-dropdown" role="menu" aria-label="Account menu" hidden>
+          <div class="account-dropdown-head">
+            <img class="account-dropdown-avatar" id="dropdown-avatar" alt="" referrerpolicy="no-referrer" hidden />
+            <span class="account-dropdown-initial" id="dropdown-initial" aria-hidden="true"></span>
+            <div class="account-dropdown-meta">
+              <strong id="dropdown-name"></strong>
+              <span class="muted" id="dropdown-email"></span>
+              <span class="account-role-badge" id="dropdown-role"></span>
+            </div>
+          </div>
+          <div class="account-dropdown-items">
+            <button type="button" class="account-dropdown-item" id="btn-dropdown-admin" role="menuitem" data-action="open-admin-panel" data-agent-id="btn_dropdown_admin" data-testid="btn_dropdown_admin">
+              <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+              <span>Admin Panel</span>
+            </button>
+            <button type="button" class="account-dropdown-item account-dropdown-signout" id="btn-dropdown-signout" role="menuitem" data-sign-out="true" data-agent-id="btn_dropdown_signout" data-testid="btn_dropdown_signout">
+              <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+              <span>Sign out</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="run-progress" id="run-progress" hidden>
         <div class="run-progress-track" role="progressbar" aria-label="Report progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -85,16 +118,7 @@
       </div>
     </header>
 
-    <nav class="sidenav" aria-label="Sections">
-      <ul class="nav-list">
-        <li><a href="#overview" data-nav="overview" data-agent-id="nav_overview_side" data-testid="nav_overview_side"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span class="nav-label">Overview</span></a></li>
-        <li><a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed_side" data-testid="nav_confirmed_side"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span class="nav-label">Confirmed</span><span class="nav-count" data-count="confirmed"></span></a></li>
-        <li><a href="#upcoming" data-nav="upcoming" data-agent-id="nav_upcoming_side" data-testid="nav_upcoming_side"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="nav-label">Upcoming</span><span class="nav-count" data-count="upcoming"></span></a></li>
-        <li><a href="#takeaways" data-nav="takeaways" data-agent-id="nav_takeaways_side" data-testid="nav_takeaways_side"><svg class="icon" aria-hidden="true"><use href="#i-bulb"/></svg><span class="nav-label">Key takeaways</span></a></li>
-        <li><a href="#settings" data-nav="settings" data-agent-id="nav_settings_side" data-testid="nav_settings_side"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="nav-label">Settings</span></a></li>
-      </ul>
-      <p class="sidenav-note" id="schedule-note"></p>
-    </nav>
+    <span id="schedule-note" hidden></span>
 
     <main class="main" id="main" data-view="overview" tabindex="-1" aria-busy="true">
       <div class="filters" id="filters" role="search" aria-label="Filter the report">
@@ -102,7 +126,7 @@
           <div class="search">
             <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
             <label for="f-search" class="visually-hidden">Search the report</label>
-            <input id="f-search" type="search" placeholder="Search company, ticker, agency…" autocomplete="off" spellcheck="false" data-agent-id="input_search" data-testid="input_search">
+            <input id="f-search" type="search" placeholder="Search company, ticker, agency, sector, source…" autocomplete="off" spellcheck="false" data-agent-id="input_search" data-testid="input_search">
           </div>
           <button class="btn btn-ghost filters-toggle" id="filters-toggle" type="button" aria-expanded="false" aria-controls="filters-more" data-agent-id="btn_toggle_filters" data-testid="btn_toggle_filters">
             <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg><span>Filters</span><span class="filters-badge" id="filters-badge" hidden></span>
@@ -115,149 +139,234 @@
             <button type="button" role="radio" aria-checked="false" data-scope="options" data-agent-id="radio_scope_options" data-testid="radio_scope_options">Has options</button>
             <button type="button" role="radio" aria-checked="false" data-scope="watchlist" data-agent-id="radio_scope_watchlist" data-testid="radio_scope_watchlist">Watchlist</button>
           </div>
-          <div class="select">
-            <label for="f-sector" class="visually-hidden">Sector</label>
-            <select id="f-sector" data-agent-id="select_sector" data-testid="select_sector"><option value="">All sectors</option></select>
-          </div>
-          <div class="select" hidden>
-            <label for="f-jur" class="visually-hidden">Government</label>
-            <select id="f-jur" data-agent-id="select_jurisdiction" data-testid="select_jurisdiction"><option value="">All governments</option></select>
-          </div>
-          <div class="select">
-            <label for="f-source" class="visually-hidden">Source</label>
-            <select id="f-source" data-agent-id="select_source" data-testid="select_source">
-              <option value="">All sources</option>
-              <option value="asx">ASX announcements</option>
-              <option value="austender">AusTender</option>
-              <option value="news">News</option>
-              <option value="atm">AusTender tenders</option>
-              <option value="ai">AI analyst</option>
-            </select>
-          </div>
           <button type="button" class="btn btn-link" id="f-clear" hidden data-agent-id="btn_clear_filters" data-testid="btn_clear_filters">Clear filters</button>
         </div>
       </div>
 
-      <section class="view" id="overview" data-view="overview" aria-labelledby="overview-title">
-        <div class="report-head">
-          <p class="eyebrow" id="report-eyebrow">Government contract intelligence</p>
-          <h1 id="overview-title">Daily brief</h1>
-          <p class="report-meta" id="report-meta"></p>
+      <section class="view deck-view" id="overview" data-view="overview" aria-label="Intelligence Dashboard">
+        <!-- 4 Postcard Deck (Desktop / Laptop) -->
+        <div class="postcard-deck" id="postcard-deck" role="tablist" aria-label="Intelligence Sections">
+          <!-- Postcard 1: Daily Brief -->
+          <button type="button" class="postcard" id="postcard-brief" role="tab" aria-selected="false" aria-controls="panel-brief" data-postcard="brief" data-agent-id="postcard_brief" data-testid="postcard_brief">
+            <span class="postcard-stamp" aria-hidden="true">INTEL · 24H</span>
+            <div class="postcard-header">
+              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-sparkle"/></svg></span>
+              <span class="postcard-tag">Executive Summary</span>
+            </div>
+            <h3 class="postcard-title">Daily Brief</h3>
+            <p class="postcard-desc">AI intelligence brief, contract correlations, and industry movements</p>
+            <div class="postcard-footer">
+              <span class="postcard-stat" id="postcard-brief-stat">Past 7 days analysis</span>
+              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+            </div>
+          </button>
+
+          <!-- Postcard 2: Sectors -->
+          <button type="button" class="postcard" id="postcard-sectors" role="tab" aria-selected="false" aria-controls="panel-sectors" data-postcard="sectors" data-agent-id="postcard_sectors" data-testid="postcard_sectors">
+            <span class="postcard-stamp" aria-hidden="true">SECTORS</span>
+            <div class="postcard-header">
+              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-chart"/></svg></span>
+              <span class="postcard-tag">Sector Breakdown</span>
+            </div>
+            <h3 class="postcard-title">Confirmed by Sector</h3>
+            <p class="postcard-desc">Disclosed government contract value and volume by industry sector</p>
+            <div class="postcard-footer">
+              <span class="postcard-stat" id="postcard-sectors-stat">Active industry sectors</span>
+              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+            </div>
+          </button>
+
+          <!-- Postcard 3: Confirmed Contracts -->
+          <button type="button" class="postcard" id="postcard-confirmed" role="tab" aria-selected="false" aria-controls="panel-confirmed" data-postcard="confirmed" data-agent-id="postcard_confirmed" data-testid="postcard_confirmed">
+            <span class="postcard-stamp" aria-hidden="true">CONFIRMED</span>
+            <div class="postcard-header">
+              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span>
+              <span class="postcard-tag">Confirmed Contracts</span>
+            </div>
+            <h3 class="postcard-title">Confirmed Contracts</h3>
+            <p class="postcard-desc">Verified awards, signed agreements, and procurement disclosures</p>
+            <div class="postcard-footer">
+              <span class="postcard-stat" id="postcard-confirmed-stat">Government awards</span>
+              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+            </div>
+          </button>
+
+          <!-- Postcard 4: Upcoming Contracts -->
+          <button type="button" class="postcard" id="postcard-upcoming" role="tab" aria-selected="false" aria-controls="panel-upcoming" data-postcard="upcoming" data-agent-id="postcard_upcoming" data-testid="postcard_upcoming">
+            <span class="postcard-stamp" aria-hidden="true">UPCOMING</span>
+            <div class="postcard-header">
+              <span class="postcard-icon" aria-hidden="true"><svg class="icon"><use href="#i-clock"/></svg></span>
+              <span class="postcard-tag">Upcoming Contracts</span>
+            </div>
+            <h3 class="postcard-title">Upcoming Contracts</h3>
+            <p class="postcard-desc">Next 7 days tender forecasts, open RFPs, shortlists, and milestones</p>
+            <div class="postcard-footer">
+              <span class="postcard-stat" id="postcard-upcoming-stat">Forward opportunities</span>
+              <span class="postcard-indicator" aria-hidden="true"><svg class="icon"><use href="#i-down"/></svg></span>
+            </div>
+          </button>
         </div>
-        <div class="notices" id="notices"></div>
-        <div class="kpis" id="kpis" aria-live="polite"></div>
-        <article class="card" aria-labelledby="sectors-title">
-          <h2 class="card-title" id="sectors-title">Confirmed items by sector</h2>
-          <p class="card-sub">Number of confirmed contracts in view, with disclosed value (AUD)</p>
-          <div class="bars" id="sector-bars" role="list"></div>
-        </article>
-      </section>
 
-      <section class="view" id="confirmed" data-view="confirmed" aria-labelledby="confirmed-title">
-        <header class="section-head">
-          <div>
-            <h2 id="confirmed-title">Section 1 · Confirmed contracts</h2>
-            <p class="section-sub">Past 7 days: awards, signed agreements and purchase orders</p>
+        <!-- Information Drawer directly below the 4 postcards -->
+        <div class="postcard-drawer" id="postcard-drawer" hidden aria-live="polite">
+          <div class="drawer-top-bar">
+            <div class="drawer-title" id="drawer-active-title">Section details</div>
+            <button type="button" class="btn btn-sm btn-ghost drawer-close-btn" id="drawer-close-btn" aria-label="Close expanded section" data-agent-id="btn_close_drawer" data-testid="btn_close_drawer">
+              <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+              <span>Close</span>
+            </button>
           </div>
-          <div class="section-actions">
-            <button class="btn btn-ghost" type="button" data-action="copy-md" aria-label="Copy the brief as Markdown" data-agent-id="btn_copy_markdown" data-testid="btn_copy_markdown"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy Markdown</span></button>
-            <a class="btn btn-ghost" data-action="csv" href="#" download aria-label="Download the report as CSV" data-agent-id="link_download_csv" data-testid="link_download_csv"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>CSV</span></a>
-          </div>
-        </header>
-        <div class="table-wrap"><table class="data-table" id="confirmed-table" role="table"></table></div>
-      </section>
 
-      <section class="view" id="upcoming" data-view="upcoming" aria-labelledby="upcoming-title">
-        <header class="section-head">
-          <div>
-            <h2 id="upcoming-title">Section 2 · Upcoming contracts &amp; speculation</h2>
-            <p class="section-sub">Next 7 days: tenders, shortlists, preferred bidders and expected decisions</p>
+          <!-- Panel 1: Daily Brief -->
+          <div class="postcard-panel" id="panel-brief" data-postcard-panel="brief" hidden>
+            <article class="card daily-brief-card" id="daily-brief-card" aria-labelledby="overview-title">
+              <div class="report-head">
+                <p class="eyebrow" id="report-eyebrow">Government contract intelligence</p>
+                <h1 id="overview-title">Daily brief</h1>
+                <p class="report-meta" id="report-meta"></p>
+              </div>
+              <div class="brief-narrative" id="brief-narrative" aria-label="Executive Intelligence Summary"></div>
+              <div class="notices" id="notices"></div>
+              <div class="kpis" id="kpis" aria-live="polite"></div>
+            </article>
           </div>
-        </header>
-        <div class="table-wrap"><table class="data-table" id="upcoming-table" role="table"></table></div>
+
+          <!-- Panel 2: Sectors -->
+          <div class="postcard-panel" id="panel-sectors" data-postcard-panel="sectors" hidden>
+            <article class="card" id="sectors-card" aria-labelledby="sectors-title">
+              <div class="card-head">
+                <div>
+                  <h2 class="card-title" id="sectors-title">Confirmed items by sector</h2>
+                  <p class="card-sub">Number of confirmed contracts in view, with disclosed value (AUD)</p>
+                </div>
+              </div>
+              <div class="bars" id="sector-bars" role="list"></div>
+            </article>
+          </div>
+
+          <!-- Panel 3: Confirmed -->
+          <div class="postcard-panel" id="panel-confirmed" data-postcard-panel="confirmed" hidden>
+            <section class="card-table-section" id="confirmed" aria-labelledby="confirmed-title">
+              <header class="section-head">
+                <div>
+                  <h2 id="confirmed-title">Confirmed Contracts</h2>
+                  <p class="section-sub">Past 7 days: awards, signed agreements and purchase orders</p>
+                </div>
+                <div class="section-actions">
+                  <button class="btn btn-sm btn-ghost toggle-all-btn" type="button" id="btn-toggle-all-confirmed" data-action="toggle-all-confirmed" data-agent-id="btn_toggle_all_confirmed" data-testid="btn_toggle_all_confirmed">
+                    <span>Expand all</span>
+                  </button>
+                  <button class="btn btn-ghost" type="button" data-action="copy-md" aria-label="Copy the brief as Markdown" data-agent-id="btn_copy_markdown" data-testid="btn_copy_markdown"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy Markdown</span></button>
+                  <a class="btn btn-ghost" data-action="csv" href="#" download aria-label="Download the report as CSV" data-agent-id="link_download_csv" data-testid="link_download_csv"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>CSV</span></a>
+                </div>
+              </header>
+              <div class="table-wrap" id="confirmed-table-wrap"><table class="data-table" id="confirmed-table" role="table"></table></div>
+            </section>
+          </div>
+
+          <!-- Panel 4: Upcoming -->
+          <div class="postcard-panel" id="panel-upcoming" data-postcard-panel="upcoming" hidden>
+            <section class="card-table-section" id="upcoming" aria-labelledby="upcoming-title">
+              <header class="section-head">
+                <div>
+                  <h2 id="upcoming-title">Upcoming Contracts</h2>
+                  <p class="section-sub">Next 7 days: tenders, shortlists, preferred bidders and expected milestones</p>
+                </div>
+              </header>
+              <div class="table-wrap" id="upcoming-table-wrap"><table class="data-table" id="upcoming-table" role="table"></table></div>
+            </section>
+          </div>
+        </div>
       </section>
 
       <section class="view" id="takeaways-view" data-view="takeaways" aria-labelledby="takeaways-title">
         <header class="section-head">
           <div>
             <h2 id="takeaways-title">Section 3 · Strategic key takeaways</h2>
-            <p class="section-sub">Three takeaways drawn from Sections 1 and 2 of this report</p>
+            <p class="section-sub">Comprehensive intelligence across capital allocation, all-government procurement, sector trends, and options dynamics</p>
+          </div>
+          <div class="section-actions">
+            <button type="button" class="btn btn-sm btn-ghost" id="btn-copy-takeaways" data-action="copy-takeaways" data-agent-id="btn_copy_takeaways" data-testid="btn_copy_takeaways">
+              <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+              <span>Copy takeaways</span>
+            </button>
           </div>
         </header>
+        <div class="takeaways-metrics kpis" id="takeaways-metrics" aria-live="polite"></div>
         <article class="card takeaways-card">
           <ol class="takeaways" id="takeaways"></ol>
         </article>
-      </section>
-
-      <section class="view" id="settings" data-view="settings" aria-labelledby="settings-title">
-        <header class="section-head">
-          <div>
-            <h2 id="settings-title">Settings &amp; sources</h2>
-            <p class="section-sub" id="settings-sub">Saved on this computer in <code>data/settings.json</code>. Changes apply from the next report.</p>
-          </div>
-        </header>
-        <p class="notice notice-info" id="manage-note" hidden>Only the superadmin can change settings or run reports. <a href="#admin" data-nav="admin" data-agent-id="link_manage_sign_in" data-testid="link_manage_sign_in">Sign in</a></p>
-        <div class="settings-grid">
-          <form class="card" id="watchlist-form" novalidate data-agent-id="form_watchlist" data-testid="form_watchlist" data-schema-target="Settings.watchlist" aria-labelledby="watchlist-title">
-            <h3 class="card-title" id="watchlist-title">Watchlist</h3>
-            <p class="card-sub" id="watchlist-hint">ASX codes you hold or trade options on. Matching contracts get a star and their own filter.</p>
-            <ul class="chips" id="watchlist-chips" aria-label="Watchlist tickers"></ul>
-            <div class="inline-form">
-              <div class="field grow">
-                <label for="watchlist-input">Add ASX codes</label>
-                <input id="watchlist-input" name="watchlist" placeholder="e.g. DRO, EOS, TNE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="watchlist-hint watchlist-error" data-schema-path="watchlist" data-agent-id="input_watchlist_add" data-testid="input_watchlist_add">
-                <span id="watchlist-error" class="error-msg" data-agent-error="watchlist" aria-live="assertive"></span>
-              </div>
-              <button class="btn btn-primary" type="submit" data-agent-id="btn_watchlist_add" data-testid="btn_watchlist_add">Add</button>
-            </div>
-          </form>
-
-          <form class="card" id="schedule-form" novalidate data-agent-id="form_schedule" data-testid="form_schedule" data-schema-target="Settings.schedule" aria-labelledby="schedule-title">
-            <h3 class="card-title" id="schedule-title">Daily schedule</h3>
-            <div class="schema-fields" data-fields></div>
-            <p class="hint" id="schedule-hint"></p>
-          </form>
-
-          <form class="card" id="sources-form" novalidate data-agent-id="form_sources" data-testid="form_sources" data-schema-target="Settings.sources" aria-labelledby="sources-title">
-            <h3 class="card-title" id="sources-title">Sources</h3>
-            <div class="schema-fields" data-fields></div>
-          </form>
-
-          <form class="card" id="ai-form" novalidate data-agent-id="form_ai" data-testid="form_ai" data-schema-target="Settings.ai" aria-labelledby="ai-title">
-            <h3 class="card-title" id="ai-title"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg> AI analyst <small class="muted">optional</small></h3>
-            <p id="ai-status" class="card-sub"></p>
-            <div class="schema-fields inline-form" data-fields></div>
-            <button class="btn btn-primary" id="ai-run-btn" type="button" data-agent-id="btn_run_ai" data-testid="btn_run_ai"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg><span>Run AI analysis now</span></button>
-            <p class="hint">Runs the analyst brief on Claude Opus 5.5 with web search, seeded with this app's leads. Usage is billed to your Anthropic account; each AI report shows its estimated cost.</p>
-          </form>
-
-          <section class="card" aria-labelledby="admin-link-title">
-            <h3 class="card-title" id="admin-link-title"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg> Superadmin</h3>
-            <p class="card-sub">Token system, currencies, token prices, saleable items and wallets.</p>
-            <a class="btn btn-ghost" href="#admin" data-nav="admin" data-agent-id="link_open_admin" data-testid="link_open_admin">Open Superadmin panel</a>
-          </section>
-
-          <section class="card card-wide" aria-labelledby="health-title">
-            <h3 class="card-title" id="health-title">Source health for this report</h3>
-            <div class="table-wrap"><table class="data-table compact" id="sources-table" role="table"></table></div>
-          </section>
-
-          <section class="card card-wide" id="ai-output-card" aria-labelledby="ai-output-title" hidden>
-            <h3 class="card-title" id="ai-output-title">AI analyst report (as written)</h3>
-            <pre class="md-raw" id="ai-markdown"></pre>
-          </section>
-        </div>
       </section>
 
       <section class="view" id="admin" data-view="admin" aria-labelledby="admin-title">
         <header class="section-head">
           <div>
             <h2 id="admin-title">Superadmin panel</h2>
-            <p class="section-sub">Token economy for this app. All token amounts and prices are whole numbers.</p>
+            <p class="section-sub" id="admin-sub">Manage app settings, sources &amp; feeds, and the token economy.</p>
           </div>
           <div class="section-actions" id="admin-actions"></div>
         </header>
-        <div id="admin-root"></div>
+
+        <div id="admin-gate-card"></div>
+
+        <div id="admin-authenticated-body" hidden>
+          <div class="admin-tab-bar seg" role="tablist" aria-label="Admin panels">
+            <button type="button" role="tab" class="admin-tab-btn active" id="tab-btn-settings" aria-selected="true" aria-controls="admin-tab-settings" data-admin-tab="settings" data-agent-id="tab_admin_settings" data-testid="tab_admin_settings">App Settings &amp; Sources</button>
+            <button type="button" role="tab" class="admin-tab-btn" id="tab-btn-commerce" aria-selected="false" aria-controls="admin-tab-commerce" data-admin-tab="commerce" data-agent-id="tab_admin_commerce" data-testid="tab_admin_commerce">Token Economy &amp; Commerce</button>
+          </div>
+
+          <div id="admin-tab-settings" class="admin-tab-panel" role="tabpanel" aria-labelledby="tab-btn-settings">
+            <p class="notice notice-info" id="manage-note" hidden>Only the superadmin can change settings or run reports.</p>
+            <div class="settings-grid">
+              <form class="card" id="watchlist-form" novalidate data-agent-id="form_watchlist" data-testid="form_watchlist" data-schema-target="Settings.watchlist" aria-labelledby="watchlist-title">
+                <h3 class="card-title" id="watchlist-title">Watchlist</h3>
+                <p class="card-sub" id="watchlist-hint">ASX codes you hold or trade options on. Matching contracts get a star and their own filter.</p>
+                <ul class="chips" id="watchlist-chips" aria-label="Watchlist tickers"></ul>
+                <div class="inline-form">
+                  <div class="field grow">
+                    <label for="watchlist-input">Add ASX codes</label>
+                    <input id="watchlist-input" name="watchlist" placeholder="e.g. DRO, EOS, TNE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="watchlist-hint watchlist-error" data-schema-path="watchlist" data-agent-id="input_watchlist_add" data-testid="input_watchlist_add">
+                    <span id="watchlist-error" class="error-msg" data-agent-error="watchlist" aria-live="assertive"></span>
+                  </div>
+                  <button class="btn btn-primary" type="submit" data-agent-id="btn_watchlist_add" data-testid="btn_watchlist_add">Add</button>
+                </div>
+              </form>
+
+              <form class="card" id="schedule-form" novalidate data-agent-id="form_schedule" data-testid="form_schedule" data-schema-target="Settings.schedule" aria-labelledby="schedule-title">
+                <h3 class="card-title" id="schedule-title">Daily schedule</h3>
+                <div class="schema-fields" data-fields></div>
+                <p class="hint" id="schedule-hint"></p>
+              </form>
+
+              <form class="card" id="sources-form" novalidate data-agent-id="form_sources" data-testid="form_sources" data-schema-target="Settings.sources" aria-labelledby="sources-title">
+                <h3 class="card-title" id="sources-title">Sources</h3>
+                <div class="schema-fields" data-fields></div>
+              </form>
+
+              <form class="card" id="ai-form" novalidate data-agent-id="form_ai" data-testid="form_ai" data-schema-target="Settings.ai" aria-labelledby="ai-title">
+                <h3 class="card-title" id="ai-title"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg> AI analyst <small class="muted">optional</small></h3>
+                <p id="ai-status" class="card-sub"></p>
+                <div class="schema-fields inline-form" data-fields></div>
+                <button class="btn btn-primary" id="ai-run-btn" type="button" data-agent-id="btn_run_ai" data-testid="btn_run_ai"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg><span>Run AI analysis now</span></button>
+                <p class="hint">Runs the analyst brief on Claude Opus 5.5 with web search, seeded with this app's leads. Usage is billed to your Anthropic account; each AI report shows its estimated cost.</p>
+              </form>
+
+              <section class="card card-wide" aria-labelledby="health-title">
+                <h3 class="card-title" id="health-title">Source health for this report</h3>
+                <div class="table-wrap"><table class="data-table compact" id="sources-table" role="table"></table></div>
+              </section>
+
+              <section class="card card-wide" id="ai-output-card" aria-labelledby="ai-output-title" hidden>
+                <h3 class="card-title" id="ai-output-title">AI analyst report (as written)</h3>
+                <pre class="md-raw" id="ai-markdown"></pre>
+              </section>
+            </div>
+          </div>
+
+          <div id="admin-tab-commerce" class="admin-tab-panel" role="tabpanel" aria-labelledby="tab-btn-commerce" hidden>
+            <div id="admin-root"></div>
+          </div>
+        </div>
       </section>
 
       <section class="view" id="welcome" data-view="welcome" aria-labelledby="welcome-title">
@@ -301,7 +410,6 @@
       <a href="#confirmed" data-nav="confirmed" data-agent-id="nav_confirmed_bottom" data-testid="nav_confirmed_bottom"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></a>
       <a href="#upcoming" data-nav="upcoming" data-agent-id="nav_upcoming_bottom" data-testid="nav_upcoming_bottom"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span>Upcoming</span></a>
       <a href="#takeaways" data-nav="takeaways" data-agent-id="nav_takeaways_bottom" data-testid="nav_takeaways_bottom"><svg class="icon" aria-hidden="true"><use href="#i-bulb"/></svg><span>Takeaways</span></a>
-      <a href="#settings" data-nav="settings" data-agent-id="nav_settings_bottom" data-testid="nav_settings_bottom"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span>Settings</span></a>
     </nav>
   </div>
 

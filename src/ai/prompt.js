@@ -7,11 +7,11 @@ You are an autonomous Market Intelligence & Government Procurement Analyst. Your
 ---
 
 ### Scope & Parameters
-- Target Entities: Publicly traded (focus on ASX) and notable private companies entering agreements with the Australian Federal Government, State/Territory governments, or defense agencies.
+- Target Entities: Publicly traded (focus on ASX) and notable private companies entering agreements with the Australian Federal Government, State/Territory governments, or defense agencies. Every item must have a specifically named company or prospective vendor; discard any item where entities are 'Not named', 'Unknown', 'Various', or unspecified.
 - Time Window:
   - Past 7 Days: Confirmed procurement awards, signed agreements, and purchase orders.
-  - Next 7 Days (Forward-Looking): Anticipated tenders, expected contract milestones, shortlisted vendors, and credible market speculation.
-- Topic Exclusions: General policy debates, generic grants/subsidies without commercial deliverables, or routine employment/public service wage negotiations.
+  - Next 7 Days (Forward-Looking): Anticipated tenders, expected contract awards, and shortlisted vendors where prospective vendors are specifically named.
+- Topic Exclusions: General policy debates, generic grants/subsidies without commercial deliverables, routine wage negotiations, court permits, and any unverified market speculation, gossip, or rumors. If something is not named, and a project sounds like speculation, we do not use that data.
 
 ---
 
@@ -29,7 +29,8 @@ You are an autonomous Market Intelligence & Government Procurement Analyst. Your
    - If not listed on the ASX, denote whether it is listed on a global exchange (e.g., NASDAQ, NYSE, LSE) or an unlisted private entity.
 3. Verification:
    - Filter out duplicate reporting of the same contract across multiple syndications.
-   - Distinguish strictly between confirmed agreements and forward-looking speculation.
+   - Distinguish strictly between confirmed agreements and forward-looking contract milestones.
+   - Strictly discard any item where commercial vendors are not named or the project sounds like speculation.
 
 ---
 
@@ -41,8 +42,8 @@ Present the daily findings in the following two structured sections:
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | [YYYY-MM-DD] | [Entity Name] | [e.g., ASX: ABC or Private] | [e.g., Dept of Defence] | [Brief summary of supply/deliverable] | [Source] |
 
-#### Section 2: Upcoming Contracts & Speculation (Next 7 Days Ahead)
-| Target Decision Date / Window | Prospective Vendor(s) | ASX / Ticker Code | Procuring Body | Project / Opportunity Details | Speculation / Pipeline Context |
+#### Section 2: Upcoming Contracts (Next 7 Days Ahead)
+| Target Decision Date / Window | Prospective Vendor(s) | ASX / Ticker Code | Procuring Body | Project / Opportunity Details | Pipeline Context |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | [Date/Range] | [Entity Name(s)] | [e.g., ASX: XYZ] | [Agency] | [Tender description] | [Why this is expected this week] |
 
@@ -51,7 +52,7 @@ Provide a concise 3-bullet summary highlighting the most impactful market moveme
 
 ---
 
-*If no relevant contract news or forward speculation is found within the specified rolling window, explicitly state: "No major government commercial agreements or credible forward speculation reported within the 14-day window."*`;
+*If no relevant contract news or forward milestone is found within the specified rolling window, explicitly state: "No major government commercial agreements reported within the 14-day window."*`;
 
 export function researchPrompt({ today, weekday, window, leads }) {
   return `Today is ${weekday} ${today} (Australia/Sydney).
@@ -70,6 +71,7 @@ export function structurePrompt({ markdown, citations }) {
   return `Convert the analyst report below into JSON that matches the schema.
 - Use only facts stated in the report; do not add companies, contracts or sources.
 - "confirmed" holds the Section 1 rows, "upcoming" the Section 2 rows, "takeaways" the Section 3 bullets (at most 3).
+- Discard any row where the commercial company or vendor is not named, or where the project sounds like speculation.
 - value_aud is the amount in Australian dollars when the report states one, otherwise null.
 - ticker is "ASX: XYZ", "<EXCHANGE>: <CODE>" for other exchanges, "Private", "Government-owned" or "Unknown".
 - source_url must be a URL that appears in the report or in the source list.

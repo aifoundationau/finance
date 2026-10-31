@@ -5,6 +5,7 @@ import { ITEM_INPUT, REPORT, SETTINGS, SETTINGS_PATCH, UNLOCK_REQUEST, WALLET_AD
 import { RETRY, backoffDelay } from "../public/shared/retry.js";
 import { DEFAULT_SETTINGS } from "../src/settings.js";
 import { _clearForTests, idempotent } from "../src/idempotency.js";
+import { buildTakeaways } from "../src/lib/takeaways.js";
 
 const paths = (errors) => errors.map((e) => e.path);
 
@@ -52,6 +53,47 @@ test("report schema accepts a minimal report and rejects unknown item fields", (
     scope: null, sector: "Defence", status: "confirmed", stage: "awarded", sources: [], pos: 3,
   };
   assert.deepEqual(paths(validate(REPORT, { ...report, confirmed: [item] })), ["confirmed[0].pos"]);
+});
+
+test("buildTakeaways produces 6 strategic pillars and passes schema validation", () => {
+  const confirmed = [{
+    id: "c1", kind: "confirmed", date: "2026-10-21", title: "Defence Contract",
+    companies: [{ code: "EOS", name: "Electro Optic Systems", display: "EOS", listing: "ASX" }],
+    agency: "Department of Defence", jurisdiction: "Federal",
+    value: { amount: 15_000_000, currency: "AUD", text: "$15.0M" },
+    scope: "Remote weapon stations", sector: "Defence", status: "confirmed", stage: "awarded", sources: [],
+  }, {
+    id: "c2", kind: "confirmed", date: "2026-10-22", title: "Queensland Health IT",
+    companies: [{ code: "DDR", name: "Dicker Data", display: "Dicker Data", listing: "ASX" }],
+    agency: "Queensland Health", jurisdiction: "QLD",
+    value: { amount: 4_500_000, currency: "AUD", text: "$4.5M" },
+    scope: "Hardware provisioning", sector: "Cyber/IT", status: "confirmed", stage: "awarded", sources: [],
+  }];
+  const upcoming = [{
+    id: "u1", kind: "upcoming", date: "2026-10-25", title: "NSW Transport Ticketing decision",
+    companies: [{ code: "TNE", name: "TechnologyOne", display: "TechnologyOne", listing: "ASX" }],
+    agency: "Transport for NSW", jurisdiction: "NSW",
+    value: null, scope: "Cloud ERP", sector: "Cyber/IT", status: "upcoming", stage: "expected",
+    confidence: "high", sources: [{ title: "Tender update", url: "https://example.com/nsw" }],
+    window: { from: "2026-10-22", to: "2026-10-29" },
+  }];
+  const market = {
+    EOS: { code: "EOS", price: 1.85, changePct: 4.5, options: { available: true } },
+    DDR: { code: "DDR", price: 9.20, changePct: -1.2, options: { available: false } },
+    TNE: { code: "TNE", price: 17.50, changePct: 0.8, options: { available: true } },
+  };
+
+  const takeaways = buildTakeaways({ confirmed, upcoming, market });
+  assert.equal(takeaways.length, 6);
+  assert.match(takeaways[0], /^Capital Allocation:/);
+  assert.match(takeaways[1], /^All Governments:/);
+  assert.match(takeaways[2], /^Sector Dynamics:/);
+  assert.match(takeaways[3], /^Forward Pipeline:/);
+  assert.match(takeaways[4], /^Market Reaction:/);
+  assert.match(takeaways[5], /^Options Intelligence:/);
+
+  // Validate takeaways schema directly
+  assert.deepEqual(validate(REPORT.properties.takeaways, takeaways), []);
 });
 
 test("retry policy: 500 ms base doubling, with bounded jitter", () => {

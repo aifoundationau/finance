@@ -27,20 +27,25 @@ test("AI rows become report items with verified tickers", () => {
           jurisdiction: "TAS", project: "Hobart stadium main works", context: "Preferred builder named; contract expected", sector: "Infrastructure",
           value_aud: null, value_text: "Undisclosed", source_title: "Builder chosen", source_url: "https://example.com/b",
         },
+        {
+          window: "Next week", vendors: [], procuring_body: "Dept of Defence",
+          jurisdiction: "Federal", project: "Vague speculation on drone fleet", context: "Market speculation", sector: "Defence",
+          value_aud: null, value_text: "Undisclosed", source_title: "Drone rumor", source_url: "https://example.com/c",
+        },
       ],
       takeaways: ["a", "b", "c", "d"],
     },
     r,
     "2026-10-21",
   );
+  assert.equal(confirmed.length, 4);
   assert.equal(confirmed[0].companies[0].code, "EXT");
   assert.equal(confirmed[0].value.amount, 2.9e6);
   assert.equal(confirmed[1].companies[0].code, "ASB");
   assert.equal(confirmed[2].companies[0].listing, "Unverified");
   assert.match(confirmed[2].companies[0].note, /ASX: ZZZ/);
   assert.equal(confirmed[3].companies[0].code, "LMT");
-  assert.deepEqual(confirmed[4].companies, []);
-  assert.deepEqual(confirmed[4].sources, []); // unsafe URL dropped
+  assert.equal(upcoming.length, 1);
   assert.equal(upcoming[0].window.to, "2026-10-27");
   assert.equal(upcoming[0].companies[0].listing, "Private");
   assert.equal(upcoming[0].value, null);

@@ -39,8 +39,8 @@ export function reportToMarkdown(report) {
 
   lines.push(
     "",
-    "#### Section 2: Upcoming Contracts & Speculation (Next 7 Days Ahead)",
-    "| Target Decision Date / Window | Prospective Vendor(s) | ASX / Ticker Code | Procuring Body | Project / Opportunity Details | Speculation / Pipeline Context |",
+    "#### Section 2: Upcoming Contracts (Next 7 Days Ahead)",
+    "| Target Decision Date / Window | Prospective Vendor(s) | ASX / Ticker Code | Procuring Body | Project / Opportunity Details | Pipeline Context |",
     "| :--- | :--- | :--- | :--- | :--- | :--- |",
   );
   for (const i of report.upcoming) {

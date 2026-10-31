@@ -10,11 +10,12 @@ import {
   ASX_CODE, COMMERCE_SETTINGS_PATCH, ITEM_INPUT, ITEM_PATCH, JURISDICTIONS, LOGIN_REQUEST, SECTORS, SELF_CREDIT_FORM, SETTINGS,
   SETTINGS_PATCH, WALLET_ADJUST_REQUEST,
 } from "/shared/schemas.js";
+import { googleStockSearchUrl } from "/shared/exchanges.js";
 
 // Tells boot-check.js the module graph loaded (an import that fails stops this file running).
 window.__maoStarted = true;
 
-const VIEWS = ["overview", "confirmed", "upcoming", "takeaways", "settings", "admin", "welcome"];
+const VIEWS = ["overview", "confirmed", "upcoming", "takeaways", "admin", "welcome"];
 const DETAILS_ITEM_ID = "contract-details"; // the saleable item that unlocks value/scope and sources
 const BRIEF_VIEWS = new Set(["overview", "confirmed", "upcoming"]);
 const STAGE_LABELS = {
@@ -30,11 +31,12 @@ const STAGE_LABELS = {
   speculation: "Speculation",
   "tender-closing": "Tender closing",
 };
-const NO_FINDINGS = "No major government commercial agreements or credible forward speculation reported within the 14-day window.";
+const NO_FINDINGS = "No major government commercial agreements reported within the 14-day window.";
 const THEME_KEY = "mao-theme";
 
 const main = $("#main");
 const desktop = matchMedia("(min-width: 1024px)");
+const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia("(max-width: 768px)").matches;
 
 const state = {
   reports: [],
@@ -46,6 +48,7 @@ const state = {
   editingItem: null,
   authError: null,
   view: "overview",
+  activePostcard: null,
   filters: { q: "", scope: "all", sector: "", jur: "", source: "" },
   sort: "date",
   history: {},
@@ -84,7 +87,7 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 function tickerLabel(c, short = false) {
   if (c.listing === "ASX") return `ASX: ${c.code}`;
-  if (c.listing === "Overseas") return `${c.exchange}: ${c.code}`;
+  if (c.listing === "Overseas") return `${c.exchange || "ASX"}: ${c.code}`;
   if (c.listing === "Private" || c.listing === "Government-owned") return c.listing;
   return short ? "Unverified" : "Unlisted / unverified";
 }
@@ -147,6 +150,35 @@ async function loadCommerce() {
   }
   renderWallet();
   renderAccount();
+  updateNavForAdmin();
+}
+
+function updateNavForAdmin() {
+  // Admin is strictly behind Google login / account modal, not exposed in the navbar
+}
+
+function setAdminTab(tab) {
+  state.adminTab = tab === "commerce" ? "commerce" : "settings";
+  renderAdminTabs();
+}
+
+function renderAdminTabs() {
+  const current = state.adminTab || "settings";
+  const btnSettings = $("#tab-btn-settings");
+  const btnCommerce = $("#tab-btn-commerce");
+  const panelSettings = $("#admin-tab-settings");
+  const panelCommerce = $("#admin-tab-commerce");
+
+  if (btnSettings) {
+    btnSettings.classList.toggle("active", current === "settings");
+    btnSettings.setAttribute("aria-selected", String(current === "settings"));
+  }
+  if (btnCommerce) {
+    btnCommerce.classList.toggle("active", current === "commerce");
+    btnCommerce.setAttribute("aria-selected", String(current === "commerce"));
+  }
+  if (panelSettings) panelSettings.hidden = current !== "settings";
+  if (panelCommerce) panelCommerce.hidden = current !== "commerce";
 }
 
 // ------------------------------------------------------------------ account
@@ -157,33 +189,77 @@ const roleLabel = (role) => ROLE_LABELS[role] ?? (role ? `${role[0].toUpperCase(
 /** Top right: "Register / Sign in" for visitors (when Google sign-in is set up), the account button once signed in. */
 function renderAccount() {
   const user = state.commerce?.user ?? null;
+  const isAdminUser = Boolean(state.commerce?.admin);
   $("#signin-btn").hidden = Boolean(user) || !state.commerce?.googleSignIn;
   const account = $("#account-btn");
   account.hidden = !user;
-  if (!user) return;
+  if (!user) {
+    toggleAccountDropdown(false);
+    return;
+  }
   const name = user.name || user.email;
-  $("#account-initial").textContent = name.trim().charAt(0).toUpperCase();
-  $("#account-name").textContent = name.split(/\s+/)[0];
+  const initial = name.trim().charAt(0).toUpperCase();
+  const initialEl = $("#account-initial");
+  const avatarImg = $("#account-avatar");
+  if (initialEl) initialEl.textContent = initial;
+  const picUrl = safeUrl(user.picture);
+  if (avatarImg && picUrl) {
+    avatarImg.src = picUrl;
+    avatarImg.hidden = false;
+    if (initialEl) initialEl.hidden = true;
+    avatarImg.onerror = () => {
+      avatarImg.hidden = true;
+      if (initialEl) initialEl.hidden = false;
+    };
+  } else {
+    if (avatarImg) avatarImg.hidden = true;
+    if (initialEl) initialEl.hidden = false;
+  }
+  const nameEl = $("#account-name");
+  if (nameEl) nameEl.textContent = name.split(/\s+/)[0];
   account.setAttribute("aria-label", `Your account: ${name}`);
+  account.title = `${name} (${user.email})`;
+
+  // Populate dropdown header
+  const dropAvatar = $("#dropdown-avatar");
+  const dropInitial = $("#dropdown-initial");
+  const dropName = $("#dropdown-name");
+  const dropEmail = $("#dropdown-email");
+  const dropRole = $("#dropdown-role");
+  if (dropInitial) dropInitial.textContent = initial;
+  if (dropAvatar && picUrl) {
+    dropAvatar.src = picUrl;
+    dropAvatar.hidden = false;
+    if (dropInitial) dropInitial.hidden = true;
+    dropAvatar.onerror = () => {
+      dropAvatar.hidden = true;
+      if (dropInitial) dropInitial.hidden = false;
+    };
+  } else {
+    if (dropAvatar) dropAvatar.hidden = true;
+    if (dropInitial) dropInitial.hidden = false;
+  }
+  if (dropName) dropName.textContent = user.name || user.email;
+  if (dropEmail) dropEmail.textContent = user.email;
+  if (dropRole) dropRole.textContent = isAdminUser ? "Superadmin" : roleLabel(user.role);
 }
 
-function openAccount() {
-  const { user, admin } = state.commerce;
-  tokenDialog(
-    "Your account",
-    h(
-      "dl",
-      { class: "facts" },
-      fact("Name", user.name),
-      fact("Email", user.email),
-      fact("Role", roleLabel(user.role)),
-      admin ? fact("Access", "Superadmin of this app") : null,
-    ),
-    h("button", { class: "btn btn-ghost", type: "button", "data-sign-out": true, ...agent("btn_sign_out") }, "Sign out"),
-  );
+function toggleAccountDropdown(force) {
+  const dropdown = $("#account-dropdown");
+  const btn = $("#account-btn");
+  if (!dropdown || !btn) return;
+  const isNowOpen = force !== undefined ? force : dropdown.hidden;
+  dropdown.hidden = !isNowOpen;
+  btn.setAttribute("aria-expanded", String(isNowOpen));
+}
+
+function openAccount(event) {
+  event?.stopPropagation();
+  toggleAccountDropdown();
 }
 
 async function signOut() {
+  toggleAccountDropdown(false);
   try {
     await api("POST", "/api/auth/logout", {});
   } catch (err) {
@@ -303,7 +379,29 @@ function matches(item) {
   if (f.jur && (item.jurisdiction ?? "Unknown") !== f.jur) return false;
   if (f.source && !item.sources.some((s) => s.type === f.source)) return false;
   if (f.q) {
-    const haystack = [item.title, item.scope, item.agency, item.context, item.note, ...item.companies.flatMap((c) => [c.display, c.name, c.code, tickerLabel(c)])]
+    const sourceWords = (item.sources ?? []).flatMap((s) => [s.type, s.title, s.publisher, s.url]);
+    const sourceLabels = (item.sources ?? []).flatMap((s) => {
+      const labels = [s.type];
+      if (s.type === "asx") labels.push("asx announcements", "announcement", "announcements");
+      if (s.type === "austender") labels.push("austender", "tenders", "tender notice");
+      if (s.type === "news") labels.push("news", "media");
+      if (s.type === "atm") labels.push("austender tenders", "open tender", "atm");
+      if (s.type === "ai") labels.push("ai analyst", "analyst");
+      return labels;
+    });
+    const haystack = [
+      item.title,
+      item.scope,
+      item.agency,
+      item.context,
+      item.note,
+      item.sector,
+      item.jurisdiction,
+      STAGE_LABELS[item.stage],
+      ...sourceWords,
+      ...sourceLabels,
+      ...item.companies.flatMap((c) => [c.display, c.name, c.code, tickerLabel(c)]),
+    ]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -315,21 +413,29 @@ function matches(item) {
 const filtered = (list) => (list ?? []).filter(matches);
 /** Rows naming an ASX code always lead; the sort is stable, so each group keeps its order. */
 const codesFirst = (items) => items.sort((a, b) => Number(asxCompanies(b).length > 0) - Number(asxCompanies(a).length > 0));
-const activeFilterCount = () => ["sector", "jur", "source"].filter((k) => state.filters[k]).length + (state.filters.scope !== "all" ? 1 : 0);
+const activeFilterCount = () => (state.filters.scope !== "all" ? 1 : 0);
 
 // ------------------------------------------------------------------ navigation
 
 function setView(view, { scroll = true } = {}) {
+  if (view === "settings") view = "admin";
   if (!VIEWS.includes(view)) view = "overview";
   state.view = view;
   main.dataset.view = view;
   if (view === "admin") renderAdmin();
-  for (const a of $$(".sidenav [data-nav], .bottomnav [data-nav]")) {
+  if (view === "confirmed") {
+    selectPostcard("confirmed", { syncHash: false });
+  } else if (view === "upcoming") {
+    selectPostcard("upcoming", { syncHash: false });
+  } else if (view === "overview" && scroll) {
+    selectPostcard("brief", { syncHash: false });
+  }
+  for (const a of $$("[data-nav]")) {
     if (a.dataset.nav === view) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
   if (!scroll) return;
-  if (desktop.matches && BRIEF_VIEWS.has(view) && view !== "overview") $(`#${view}`).scrollIntoView({ block: "start" });
+  if (desktop.matches && BRIEF_VIEWS.has(view) && view !== "overview") $(`#${view}`)?.scrollIntoView({ block: "start" });
   else window.scrollTo({ top: 0 });
 }
 
@@ -343,12 +449,13 @@ function navigate(view) {
 function renderMeta() {
   const r = state.report;
   const meta = $("#report-meta");
+  const titleSpan = $("#overview-title span") || $("#overview-title");
   if (!r) {
-    $("#overview-title").textContent = "Daily brief";
-    meta.replaceChildren();
+    if (titleSpan) titleSpan.textContent = "Daily brief";
+    meta?.replaceChildren();
     return;
   }
-  $("#overview-title").textContent = `Daily brief · ${fmtDateLong(r.date)}`;
+  if (titleSpan) titleSpan.textContent = `Daily brief · ${fmtDateLong(r.date)}`;
   const parts = [
     h("span", { class: r.mode === "ai" ? "badge badge-ai" : "badge" }, r.mode === "ai" ? [icon("i-sparkle"), "AI analyst"] : "Standard (rule-based)"),
     h("span", {}, `Confirmed: ${fmtDate(r.window.pastFrom)} – ${fmtDate(r.window.pastTo)}`),
@@ -356,7 +463,125 @@ function renderMeta() {
     h("span", {}, `Generated ${fmtTime(r.generatedAt)} Sydney time`),
     r.ai ? h("span", {}, `Est. cost US$${r.ai.costUsd.toFixed(2)} · ${plural(r.ai.usage.searches, "search", "searches")}`) : null,
   ];
-  meta.replaceChildren(...parts.filter(Boolean));
+  meta?.replaceChildren(...parts.filter(Boolean));
+}
+
+function renderBriefNarrative() {
+  const container = $("#brief-narrative");
+  if (!container) return;
+  const r = state.report;
+  if (!r) {
+    container.replaceChildren();
+    return;
+  }
+
+  const confirmed = filtered(r.confirmed) ?? [];
+  const upcoming = filtered(r.upcoming) ?? [];
+  const valued = confirmed.filter((i) => audValue(i) > 0);
+  const totalVal = valued.reduce((sum, i) => sum + audValue(i), 0);
+
+  // Groupings
+  const asxConfirmed = confirmed.filter((i) => asxCompanies(i).length > 0);
+  const asxTickers = [...new Set(asxConfirmed.flatMap((i) => asxCompanies(i).map((c) => c.code)))];
+
+  // Jurisdiction
+  const jurCounts = {};
+  for (const i of confirmed) {
+    const j = i.jurisdiction || "Federal";
+    jurCounts[j] = (jurCounts[j] || 0) + 1;
+  }
+  const fedCount = jurCounts["Federal"] || 0;
+  const stateList = Object.entries(jurCounts).filter(([j]) => j !== "Federal").sort((a, b) => b[1] - a[1]);
+  const stateSummary = stateList.length ? `${stateList.map(([j, c]) => `${j} (${c})`).join(", ")}` : "no state releases";
+
+  // Top agencies
+  const agencyCounts = {};
+  for (const i of confirmed) {
+    if (i.agency) agencyCounts[i.agency] = (agencyCounts[i.agency] || 0) + 1;
+  }
+  const topAgencies = Object.entries(agencyCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a]) => a);
+
+  // Sectors
+  const bySector = {};
+  for (const i of confirmed) {
+    const s = (bySector[i.sector] ??= { count: 0, val: 0 });
+    s.count += 1;
+    s.val += audValue(i);
+  }
+  const rankedSectors = Object.entries(bySector).sort((a, b) => b[1].count - a[1].count || b[1].val - a[1].val);
+  const topSector = rankedSectors[0];
+  const secondSector = rankedSectors[1];
+
+  // Market correlation
+  const marketHits = asxTickers.map((code) => ({ code, m: marketOf(code) })).filter((x) => x.m);
+  const optHits = marketHits.filter((x) => x.m?.options?.available);
+  const upHits = marketHits.filter((x) => Number.isFinite(x.m.changePct) && x.m.changePct > 0);
+
+  // Pill update
+  const pill = $("#daily-brief-pill");
+  if (pill) {
+    pill.textContent = `${confirmed.length} contracts · ${fmtMoney(totalVal)} · ${rankedSectors.length} sectors`;
+  }
+
+  // Ticker button renderer
+  const renderTicker = (code) => {
+    const m = marketOf(code);
+    const chg = m && Number.isFinite(m.changePct) ? (m.changePct >= 0 ? `+${m.changePct.toFixed(1)}%` : `${m.changePct.toFixed(1)}%`) : "";
+    const chgClass = m && Number.isFinite(m.changePct) ? (m.changePct >= 0 ? "up" : "down") : "";
+    return h(
+      "button",
+      {
+        type: "button",
+        class: "ticker-btn",
+        "data-price": code,
+        "aria-haspopup": "dialog",
+        ...agent(`btn_brief_ticker_${code}`),
+      },
+      h("strong", {}, code),
+      chg ? h("span", { class: chgClass }, chg) : null,
+      m?.options?.available ? h("span", { class: "opt-badge" }, "OPT") : null,
+    );
+  };
+
+  const pGov = h(
+    "p",
+    { class: "brief-narrative-p" },
+    h("strong", {}, "Government Contract Dynamics: "),
+    `Over the past 7 days, Australian Commonwealth and State governments published ${plural(confirmed.length, "confirmed procurement contract")}${
+      totalVal > 0 ? ` representing ${fmtMoney(totalVal)} in disclosed value` : ""
+    }, encompassing ${plural(fedCount, "Federal Commonwealth award")} and ${plural(stateList.reduce((s, [, c]) => s + c, 0), "State contract")} across ${stateSummary}. Expenditure commitments were led by ${
+      topAgencies.length ? topAgencies.join(", ") : "key departments"
+    }, prioritizing sovereign delivery, essential services, and operational continuity.`,
+  );
+
+  const pMarket = h(
+    "p",
+    { class: "brief-narrative-p" },
+    h("strong", {}, "Market Correlations & Options Catalysts: "),
+    asxTickers.length
+      ? [
+          `${plural(asxTickers.length, "ASX-listed company", "ASX-listed companies")} directly captured procurement wins or contract additions: `,
+          ...asxTickers.map((code, idx) => [idx > 0 ? ", " : null, renderTicker(code)]).flat().filter(Boolean),
+          `. Correlations across awardees show ${upHits.length ? `${upHits.length} of ${marketHits.length} actively tracked companies recording positive price momentum` : "measured price reactions"}, with `,
+          optHits.length
+            ? `${plural(optHits.length, "ticker")} (${optHits.map((x) => x.code).join(", ")}) backed by exchange-traded options liquidity, providing measurable derivative risk positioning around government revenue cycles.`
+            : "options liquidity currently unlisted across this cohort.",
+        ]
+      : "Current confirmed awards were primarily awarded to proprietary, private, or overseas entities, creating secondary supply-chain ripple effects across domestic listed primes.",
+  );
+
+  const pIndustry = h(
+    "p",
+    { class: "brief-narrative-p" },
+    h("strong", {}, "Industry Movements & Pipeline Horizon: "),
+    `${topSector ? `${topSector[0]} commanded primary capital allocation with ${plural(topSector[1].count, "award")}${topSector[1].val ? ` (${fmtMoney(topSector[1].val)})` : ""}` : "Procurement activity was balanced across categories"}${
+      secondSector ? `, followed by ${secondSector[0]} (${plural(secondSector[1].count, "award")})` : ""
+    }. Industry positioning reflects accelerated federal funding in sovereign defence capability, cyber/IT infrastructure modernization, and regional transport networks. Ahead in the pipeline, `,
+    h("strong", {}, `${plural(upcoming.length, "forthcoming procurement event")}`),
+    ` (${plural(upcoming.filter((i) => i.stage === "tender-closing").length, "AusTender closing deadline")} and ${plural(upcoming.filter((i) => i.stage !== "tender-closing").length, "decision pending")}) provide immediate forward visibility for institutional and derivative positioning.`,
+  );
+
+  container.replaceChildren(pGov, pMarket, pIndustry);
 }
 
 function notice(kind, iconId, ...content) {
@@ -414,8 +639,119 @@ function renderKpis() {
 
 function renderTakeaways() {
   const list = $("#takeaways");
-  const takeaways = state.report?.takeaways ?? [];
-  list.replaceChildren(...(takeaways.length ? takeaways.map((t) => h("li", {}, t)) : [h("li", { class: "muted" }, state.report ? NO_FINDINGS : "Takeaways appear once a report has run.")]));
+  const metrics = $("#takeaways-metrics");
+  if (!list) return;
+
+  const r = state.report;
+  const takeaways = r?.takeaways ?? [];
+  const confirmed = filtered(r?.confirmed) ?? [];
+  const upcoming = filtered(r?.upcoming) ?? [];
+  const both = [...confirmed, ...upcoming];
+
+  if (metrics && r) {
+    const valued = confirmed.filter((i) => audValue(i) > 0);
+    const total = valued.reduce((sum, i) => sum + audValue(i), 0);
+    const tickers = new Set(both.flatMap((i) => asxCompanies(i).map((c) => c.code)));
+    const withOptions = [...tickers].filter((code) => marketOf(code)?.options?.available);
+    const jurs = new Set(both.map((i) => i.jurisdiction || "Federal"));
+
+    metrics.replaceChildren(
+      kpi("Disclosed capital", fmtMoney(total), `${plural(valued.length, "confirmed deal")}`),
+      kpi("Active tickers", String(tickers.size), `${plural(both.length, "contract item")}`),
+      kpi("Jurisdictions", String(jurs.size), "Federal & States"),
+      kpi("Optionable stocks", String(withOptions.length), withOptions.length ? withOptions.slice(0, 4).join(", ") : "none in view"),
+    );
+  }
+
+  if (!takeaways.length) {
+    list.replaceChildren(h("li", { class: "muted" }, r ? NO_FINDINGS : "Takeaways appear once a report has run."));
+    return;
+  }
+
+  const companyMap = new Map();
+  for (const item of [...(r?.confirmed ?? []), ...(r?.upcoming ?? [])]) {
+    for (const c of item.companies ?? []) {
+      if (c.code) {
+        const key = c.code.toUpperCase();
+        if (!companyMap.has(key) || c.listing === "ASX") {
+          companyMap.set(key, c);
+        }
+      }
+    }
+  }
+  for (const code of Object.keys(r?.market ?? {})) {
+    const key = code.toUpperCase();
+    if (!companyMap.has(key)) {
+      companyMap.set(key, { code: key, display: key, name: key, listing: "ASX" });
+    }
+  }
+
+  const NON_TICKER_WORDS = new Set(["QLD", "NSW", "VIC", "TAS", "ACT", "AUD", "USD", "NZD", "NRW", "RFP", "RFT", "EOI", "ICT", "CEO", "CFO", "DEF", "GOV"]);
+
+  const items = takeaways.map((t, idx) => {
+    const colonIdx = t.indexOf(":");
+    let category = `Strategic Focus ${idx + 1}`;
+    let body = t;
+    if (colonIdx > 0 && colonIdx < 30) {
+      category = t.slice(0, colonIdx).trim();
+      body = t.slice(colonIdx + 1).trim();
+    }
+
+    const foundTickers = new Map();
+    const resolveCompany = (rawCode, explicitEx) => {
+      const existing = companyMap.get(rawCode);
+      const exPrefix = explicitEx && explicitEx !== "ASX" ? explicitEx : existing?.exchange || null;
+      const isAsx = !exPrefix || existing?.listing === "ASX" || Boolean(marketOf(rawCode));
+      if (existing && (existing.listing === "ASX" || existing.exchange)) return existing;
+      return {
+        code: rawCode,
+        display: existing?.display || rawCode,
+        name: existing?.name || rawCode,
+        listing: isAsx ? "ASX" : "Overseas",
+        exchange: isAsx ? null : exPrefix || "ASX",
+      };
+    };
+
+    const tickerRegex = /\b(ASX|NYSE|NASDAQ|LSE|LON|TSX|SGX|HKG|NZE|EURONEXT):\s*([A-Z0-9]{2,5})\b|\b([A-Z0-9]{3,4})\s*\(([+-]?\d+(?:\.\d+)?%)\)/gi;
+    let match;
+    while ((match = tickerRegex.exec(body)) !== null) {
+      const explicitEx = match[1]?.toUpperCase() || null;
+      const rawCode = (match[2] || match[3] || "").toUpperCase();
+      if (rawCode && !NON_TICKER_WORDS.has(rawCode) && !foundTickers.has(rawCode)) {
+        foundTickers.set(rawCode, resolveCompany(rawCode, explicitEx));
+      }
+    }
+
+    // Also pick up known report/market tickers mentioned as standalone symbols (e.g., "listed on TLS, RIO")
+    const wordRegex = /\b([A-Z0-9]{3,4})\b/g;
+    while ((match = wordRegex.exec(body)) !== null) {
+      const code = match[1];
+      if (!NON_TICKER_WORDS.has(code) && companyMap.has(code) && !foundTickers.has(code)) {
+        foundTickers.set(code, resolveCompany(code, null));
+      }
+    }
+
+    const chips = [...foundTickers.values()].map((company) => tickerChip(company, `takeaway_${idx}`));
+
+    return h(
+      "li",
+      { class: `takeaway-card-item${chips.length ? " has-stocks" : ""}` },
+      h(
+        "div",
+        { class: "takeaway-head" },
+        h("span", { class: "takeaway-tag" }, category),
+        h("span", { class: "takeaway-num" }, String(idx + 1).padStart(2, "0")),
+      ),
+      h(
+        "div",
+        { class: "takeaway-row" },
+        h("p", { class: "takeaway-body" }, body),
+        chips.length ? h("div", { class: "takeaway-stocks", "aria-label": "Linked stocks" }, ...chips) : null,
+      ),
+    );
+  });
+
+  list.replaceChildren(...items);
 }
 
 function renderSectorBars() {
@@ -430,6 +766,8 @@ function renderSectorBars() {
     bySector.set(item.sector, s);
   }
   const rows = [...bySector.entries()].sort((a, b) => b[1].count - a[1].count || b[1].value - a[1].value);
+  const pill = $("#sectors-count-pill");
+  if (pill) pill.textContent = plural(rows.length, "sector");
   if (!rows.length) return box.replaceChildren(h("p", { class: "empty-chart" }, "No confirmed items in view."));
   const max = Math.max(...rows.map(([, s]) => s.count));
   box.replaceChildren(
@@ -546,7 +884,7 @@ function valueCell(item, text = item.scope) {
   return h("div", { class: "value-cell" }, item.value ? h("strong", {}, item.value.text) : null, text ? h("span", { class: "clamp-2", title: text }, text) : null);
 }
 
-const rowFor = (item, cells) => h("tr", { class: `row${isWatch(item) ? " is-watch" : ""}`, role: "row", "data-id": item.id }, cells);
+const rowFor = (item, cells, extraClass = "") => h("tr", { class: `row${isWatch(item) ? " is-watch" : ""}${extraClass}`, role: "row", "data-id": item.id }, cells);
 const td = (cls, label, ...content) => h("td", { class: cls, role: "cell", "data-label": label }, ...content);
 
 function headerRow(cols) {
@@ -580,15 +918,24 @@ function renderConfirmed() {
   const items = filtered(all);
   if (state.sort === "value") items.sort((a, b) => audValue(b) - audValue(a));
   codesFirst(items);
+  const pill = $("#confirmed-count-pill");
+  if (pill) pill.textContent = plural(items.length, "contract");
+  const isMob = isMobile();
   const rows = items.map((item) =>
     rowFor(item, [
-      td("c-lead date-cell", null, h("time", { datetime: item.date }, fmtDate(item.date)), h("span", { class: "stage" }, STAGE_LABELS[item.stage] ?? "")),
+      td("c-lead date-cell", null,
+        h("div", { class: "date-cell-row" },
+          h("time", { datetime: item.date }, fmtDate(item.date)),
+          h("button", { class: "row-toggle-btn", type: "button", "aria-label": "Toggle details", tabindex: "-1" }, icon("i-down", "collapse-icon"))
+        ),
+        h("span", { class: "stage" }, STAGE_LABELS[item.stage] ?? "")
+      ),
       td("c-lead", null, companyCell(item)),
       td("c-ticker", null, tickersCell(item)),
       td("", "Agency", agencyCell(item)),
       td("", "Value & scope", item.locked ? lockedValue(item) : valueCell(item)),
       td("c-source", null, item.locked ? lockedSource() : sourceCell(item)),
-    ]),
+    ], isMob ? " is-collapsed" : ""),
   );
   $("#confirmed-table").replaceChildren(
     h("caption", { class: "visually-hidden" }, "Confirmed contracts, past 7 days"),
@@ -600,6 +947,8 @@ function renderConfirmed() {
 function renderUpcoming() {
   const all = state.report?.upcoming ?? [];
   const items = codesFirst(filtered(all));
+  const pill = $("#upcoming-count-pill");
+  if (pill) pill.textContent = plural(items.length, "item");
   const rows = items.map((item) =>
     rowFor(item, [
       td("c-lead date-cell", null, h("span", { class: "cell-main" }, item.window?.label ?? "Next 7 days"), h("span", { class: "stage" }, STAGE_LABELS[item.stage] ?? "")),
@@ -611,7 +960,7 @@ function renderUpcoming() {
     ]),
   );
   $("#upcoming-table").replaceChildren(
-    h("caption", { class: "visually-hidden" }, "Upcoming contracts and speculation, next 7 days"),
+    h("caption", { class: "visually-hidden" }, "Upcoming contracts, next 7 days"),
     headerRow([["col-date", "Window"], ["col-company", "Prospective vendors"], ["col-ticker", "ASX / ticker"], ["col-agency", "Procuring body"], ["col-value", "Opportunity"], ["col-source", "Context & source"]]),
     h("tbody", { role: "rowgroup" }, rows.length ? rows : emptyRow(emptyMessage(all, "forward-looking items"))),
   );
@@ -656,6 +1005,7 @@ function renderSourcesTable() {
 
 function render() {
   renderMeta();
+  renderBriefNarrative();
   renderNotices();
   renderKpis();
   renderTakeaways();
@@ -663,6 +1013,8 @@ function render() {
   renderConfirmed();
   renderUpcoming();
   renderCounts();
+  updatePostcardStats();
+  updatePostcardDeck();
   renderSourcesTable();
   const n = activeFilterCount();
   $("#filters-badge").hidden = !n;
@@ -681,7 +1033,21 @@ function fact(label, value, cls) {
 function companyDetail(c) {
   const m = c.listing === "ASX" ? marketOf(c.code) : null;
   const o = m?.options;
-  const asxLinks =
+  const ex = c.listing === "ASX" ? "ASX" : (c.exchange || "");
+  const googleStockLink = (c.listing === "ASX" || c.listing === "Overseas") && c.code
+    ? h(
+        "a",
+        {
+          href: googleStockSearchUrl(c.code, ex || "ASX"),
+          target: "_blank",
+          rel: "noopener noreferrer",
+          ...agent(`link_google_stock_${c.code}`),
+        },
+        `Google quote (${(ex || "ASX")} ${c.code}) `,
+        icon("i-external"),
+      )
+    : null;
+  const companyLinks =
     c.listing === "ASX"
       ? h(
           "div",
@@ -693,8 +1059,15 @@ function companyDetail(c) {
             "Announcements ",
             icon("i-external"),
           ),
+          googleStockLink,
         )
-      : null;
+      : (c.listing === "Overseas" && c.code
+          ? h(
+              "div",
+              { class: "link-row" },
+              googleStockLink,
+            )
+          : null);
   return h(
     "div",
     { class: "company-card" },
@@ -715,7 +1088,7 @@ function companyDetail(c) {
       : null,
     c.note ? h("p", { class: "cell-sub" }, c.note) : null,
     c.listing === "Unverified" ? h("p", { class: "cell-sub" }, `Named "${c.name}" in the source; not matched to an ASX or overseas listing.`) : null,
-    asxLinks,
+    companyLinks,
   );
 }
 
@@ -816,7 +1189,7 @@ function selectDetailTab(id, { focus = false } = {}) {
 function openDetail(id) {
   const item = allItems().find((i) => i.id === id);
   if (!item) return;
-  const kindLabel = item.kind === "confirmed" ? "Confirmed contract" : "Upcoming / speculation";
+  const kindLabel = item.kind === "confirmed" ? "Confirmed contract" : "Upcoming contract";
   const title = item.title ?? itemLabel(item);
   $("#detail-eyebrow").textContent = `${kindLabel} · ${STAGE_LABELS[item.stage] ?? ""}`;
   $("#detail-title").textContent = title;
@@ -940,7 +1313,7 @@ function renderSettings() {
 /** On a public deployment only the superadmin may change settings or start runs. */
 function applyManageAccess() {
   const allowed = state.status?.canManage !== false;
-  for (const form of $$("#settings form")) {
+  for (const form of $$(".settings-grid form")) {
     for (const el of $$("input, select, textarea, button", form)) {
       if (!allowed) el.disabled = true;
       else if (el.dataset.lockedByAccess) el.disabled = false;
@@ -1046,40 +1419,67 @@ function schemaForm({ id, schema, only, values, title, submitLabel, className = 
 const SCHEMA_FORMS = new Map();
 
 function renderAdmin() {
+  const gate = $("#admin-gate-card");
+  const authBody = $("#admin-authenticated-body");
   const root = $("#admin-root");
   const actions = $("#admin-actions");
   const c = state.commerce;
   SCHEMA_FORMS.clear();
+  updateNavForAdmin();
+
   if (!c?.admin) {
+    if (authBody) authBody.hidden = true;
+    if (gate) gate.hidden = false;
     actions.replaceChildren();
     const authError = state.authError
       ? h("p", { class: "notice notice-warn", role: "alert", "data-agent-error": "_auth" }, state.authError)
       : null;
-    if (c?.adminAuth === "google") {
-      root.replaceChildren(
+    const user = state.commerce?.user;
+    if (user) {
+      gate.replaceChildren(
         h(
           "section",
           { class: "card admin-login", "aria-labelledby": "admin-google-title" },
-          h("h3", { class: "card-title", id: "admin-google-title" }, "Superadmin sign-in"),
-          h("p", { class: "card-sub" }, "Sign in with the Google account that is listed as superadmin."),
+          h("h3", { class: "card-title", id: "admin-google-title" }, "Superadmin access required"),
+          h("p", { class: "card-sub" }, `Signed in as ${user.email}. This Google account is not listed as a superadmin.`),
           authError,
-          h("a", { class: "btn btn-primary", href: "/auth/google?return=admin", ...agent("btn_admin_google_sign_in") }, icon("i-shield"), "Sign in with Google"),
+          h(
+            "div",
+            { style: "display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;" },
+            h(
+              "a",
+              { class: "btn-google-signin", href: "/auth/google?return=admin", ...agent("btn_admin_switch_google") },
+              icon("i-google", "google-icon"),
+              h("span", {}, "Sign in with another Google account"),
+            ),
+            h("button", { class: "btn btn-ghost", type: "button", "data-sign-out": true, ...agent("btn_admin_gate_sign_out") }, "Sign out"),
+          ),
         ),
       );
       return;
     }
-    const form = schemaForm({
-      id: "admin-login",
-      schema: LOGIN_REQUEST,
-      title: "Superadmin sign-in",
-      className: "card admin-login",
-      submitLabel: "Sign in",
-      extra: c && !c.adminAuth ? [h("p", { class: "notice notice-warn" }, "Superadmin access isn't set up. Add Google sign-in or SUPERADMIN_PASSWORD to the .env file next to package.json (see README), then restart the app.")] : [],
-    });
-    if (authError) form.insertBefore(authError, form.children[1]);
-    root.replaceChildren(form);
+    gate.replaceChildren(
+      h(
+        "section",
+        { class: "card admin-login", "aria-labelledby": "admin-google-title" },
+        h("h3", { class: "card-title", id: "admin-google-title" }, "Superadmin sign-in"),
+        h("p", { class: "card-sub" }, "Admin features are restricted to authorized superadmins. Sign in with Google to continue."),
+        authError,
+        h(
+          "a",
+          { class: "btn-google-signin btn-google-large", href: "/auth/google?return=admin", ...agent("btn_admin_google_sign_in") },
+          icon("i-google", "google-icon"),
+          h("span", {}, "Sign in with Google"),
+        ),
+      ),
+    );
     return;
   }
+
+  if (gate) gate.hidden = true;
+  if (authBody) authBody.hidden = false;
+  renderAdminTabs();
+  renderSettings();
   if (!state.admin) {
     root.replaceChildren(h("p", { class: "muted" }, "Loading…"));
     api("GET", "/api/admin/state").then(
@@ -1222,12 +1622,13 @@ function renderAdmin() {
 }
 
 function bindAdmin() {
-  const root = $("#admin-root");
-  root.addEventListener("submit", async (event) => {
-    event.preventDefault();
+  const admin = $("#admin");
+  if (!admin) return;
+  admin.addEventListener("submit", async (event) => {
     const form = event.target;
     const schema = SCHEMA_FORMS.get(form.dataset.schema);
     if (!schema) return;
+    event.preventDefault();
     const { value, errors } = validateForm(form, schema);
     if (errors.length) return announce(errors[0].message, "error");
     if (form.id === "admin-login") {
@@ -1260,13 +1661,19 @@ function bindAdmin() {
       await adminCall("POST", `wallets/${encodeURIComponent(form.dataset.walletId)}/adjust`, { ...value, note: "superadmin adjustment" }, { form, message: "Wallet updated" });
     }
   });
-  root.addEventListener("change", (event) => {
+  admin.addEventListener("change", (event) => {
     const form = event.target.form;
     if (form?.id !== "admin-toggles") return;
     const value = readForm(form, COMMERCE_SETTINGS_PATCH);
     adminCall("PUT", "settings", value, { form, message: "Saved" });
   });
   document.addEventListener("click", (event) => {
+    const tab = event.target.closest("[data-admin-tab]");
+    if (tab) {
+      event.preventDefault();
+      setAdminTab(tab.dataset.adminTab);
+      return;
+    }
     const edit = event.target.closest("[data-admin-edit]");
     if (edit) {
       state.editingItem = edit.dataset.adminEdit;
@@ -1319,7 +1726,8 @@ function renderStatus() {
   $("#ai-status").textContent = s.aiConfigured
     ? "Ready: an Anthropic API key was found. AI mode re-checks the standard leads, searches the web for what they miss, and writes the three-section brief."
     : "Off: add ANTHROPIC_API_KEY to the .env file next to package.json and restart the app (see README). Everything else works without it.";
-  if (s.storage === "firestore") $("#settings-sub").textContent = "Saved in the cloud (Firestore) and shared by everyone using this app. Changes apply from the next report.";
+  const sub = $("#settings-sub") || $("#admin-sub");
+  if (sub && s.storage === "firestore") sub.textContent = "Saved in the cloud (Firestore) and shared by everyone using this app. Changes apply from the next report.";
   if (s.schedule?.kind === "cron") {
     $("#schedule-note").textContent = "Daily report: 6–7 pm Sydney";
     $("#schedule-hint").textContent = `${s.schedule.note} The time setting below applies only when the app runs on your own computer with its own data/ folder.`;
@@ -1413,14 +1821,21 @@ function populateFilterOptions() {
   const r = state.report;
   const items = r ? [...r.confirmed, ...r.upcoming] : [];
   const fill = (select, values, allLabel) => {
+    if (!select) return;
     const current = select.value;
     select.replaceChildren(h("option", { value: "" }, allLabel), ...values.map((v) => h("option", { value: v }, v)));
     select.value = values.includes(current) ? current : "";
   };
-  fill($("#f-sector"), SECTORS.filter((s) => items.some((i) => i.sector === s)), "All sectors");
-  fill($("#f-jur"), JURISDICTIONS.filter((j) => items.some((i) => (i.jurisdiction ?? "Unknown") === j)), "All governments");
-  state.filters.sector = $("#f-sector").value;
-  state.filters.jur = $("#f-jur").value;
+  const secEl = $("#f-sector");
+  if (secEl) {
+    fill(secEl, SECTORS.filter((s) => items.some((i) => i.sector === s)), "All sectors");
+    state.filters.sector = secEl.value;
+  }
+  const jurEl = $("#f-jur");
+  if (jurEl) {
+    fill(jurEl, JURISDICTIONS.filter((j) => items.some((i) => (i.jurisdiction ?? "Unknown") === j)), "All governments");
+    state.filters.jur = jurEl.value;
+  }
 }
 
 // ------------------------------------------------------------------ small UI pieces
@@ -1465,6 +1880,134 @@ function toggleTheme() {
   applyThemeLabel();
 }
 
+const POSTCARD_TITLES = {
+  brief: "Daily Brief · Executive Intelligence",
+  sectors: "Sector Breakdown · Confirmed Contracts by Category",
+  confirmed: "Confirmed Contracts",
+  upcoming: "Upcoming Contracts",
+};
+
+function selectPostcard(cardId, { syncHash = true } = {}) {
+  if (state.activePostcard === cardId) {
+    state.activePostcard = null;
+  } else {
+    state.activePostcard = cardId;
+  }
+  updatePostcardDeck();
+  if (syncHash) {
+    const hashTarget = state.activePostcard === "confirmed" ? "confirmed" : state.activePostcard === "upcoming" ? "upcoming" : "overview";
+    history.replaceState(null, "", `${location.pathname}${location.search}#${hashTarget}`);
+  }
+}
+
+function updatePostcardDeck() {
+  const active = state.activePostcard;
+  const cards = $$(".postcard[data-postcard]");
+  const panels = $$(".postcard-panel[data-postcard-panel]");
+  const drawer = $("#postcard-drawer");
+  const titleEl = $("#drawer-active-title");
+
+  for (const card of cards) {
+    const isThisActive = card.dataset.postcard === active;
+    card.classList.toggle("is-active", isThisActive);
+    card.setAttribute("aria-selected", String(isThisActive));
+  }
+
+  let hasOpen = false;
+  for (const panel of panels) {
+    const isThisActive = panel.dataset.postcardPanel === active;
+    panel.classList.toggle("is-active", isThisActive);
+    panel.hidden = !isThisActive;
+    if (isThisActive) hasOpen = true;
+  }
+
+  if (drawer) {
+    drawer.classList.toggle("is-open", hasOpen);
+    drawer.hidden = !hasOpen;
+    if (titleEl && active) {
+      titleEl.textContent = POSTCARD_TITLES[active] || "Section details";
+    }
+  }
+}
+
+function updatePostcardStats() {
+  const r = state.report;
+  if (!r) return;
+  const confirmed = filtered(r.confirmed);
+  const upcoming = filtered(r.upcoming);
+  const totalVal = confirmed.reduce((acc, x) => acc + audValue(x), 0);
+
+  const briefStat = $("#postcard-brief-stat");
+  if (briefStat) {
+    briefStat.textContent = `${confirmed.length} contracts · ${fmtMoney(totalVal)}`;
+  }
+
+  const sectorsStat = $("#postcard-sectors-stat");
+  if (sectorsStat) {
+    const sectorsSet = new Set(confirmed.map((x) => x.sector).filter(Boolean));
+    sectorsStat.textContent = `${sectorsSet.size} active sectors`;
+  }
+
+  const confirmedStat = $("#postcard-confirmed-stat");
+  if (confirmedStat) {
+    confirmedStat.textContent = `${confirmed.length} confirmed awards`;
+  }
+
+  const upcomingStat = $("#postcard-upcoming-stat");
+  if (upcomingStat) {
+    upcomingStat.textContent = `${upcoming.length} forward tenders`;
+  }
+}
+
+function toggleDailyBrief(force) {
+  const head = $("#daily-brief-toggle");
+  const body = $("#daily-brief-body");
+  if (!head || !body) return;
+  const isNowExpanded = force !== undefined ? force : body.classList.contains("is-collapsed");
+  body.classList.toggle("is-collapsed", !isNowExpanded);
+  head.setAttribute("aria-expanded", String(isNowExpanded));
+}
+
+function toggleSectors(force) {
+  const head = $("#sectors-toggle");
+  const body = $("#sector-bars-wrap");
+  if (!head || !body) return;
+  const isNowExpanded = force !== undefined ? force : body.classList.contains("is-collapsed");
+  body.classList.toggle("is-collapsed", !isNowExpanded);
+  head.setAttribute("aria-expanded", String(isNowExpanded));
+}
+
+function toggleConfirmedSection(force) {
+  const head = $("#confirmed-section-toggle");
+  const body = $("#confirmed-table-wrap");
+  if (!head || !body) return;
+  const isNowExpanded = force !== undefined ? force : body.classList.contains("is-collapsed");
+  body.classList.toggle("is-collapsed", !isNowExpanded);
+  head.setAttribute("aria-expanded", String(isNowExpanded));
+}
+
+function toggleUpcomingSection(force) {
+  const head = $("#upcoming-section-toggle");
+  const body = $("#upcoming-table-wrap");
+  if (!head || !body) return;
+  const isNowExpanded = force !== undefined ? force : body.classList.contains("is-collapsed");
+  body.classList.toggle("is-collapsed", !isNowExpanded);
+  head.setAttribute("aria-expanded", String(isNowExpanded));
+}
+
+function toggleAllConfirmed() {
+  const rows = $$("#confirmed-table tr.row");
+  const btn = $("#btn-toggle-all-confirmed");
+  const anyCollapsed = rows.some((r) => r.classList.contains("is-collapsed"));
+  for (const r of rows) {
+    r.classList.toggle("is-collapsed", !anyCollapsed);
+  }
+  if (btn) {
+    const span = btn.querySelector("span");
+    if (span) span.textContent = anyCollapsed ? "Collapse all" : "Expand all";
+  }
+}
+
 async function copyMarkdown() {
   if (!state.report) return;
   try {
@@ -1473,6 +2016,19 @@ async function copyMarkdown() {
     announce("Brief copied as Markdown");
   } catch {
     announce("Copy failed; use the CSV download instead", "error");
+  }
+}
+
+async function copyTakeaways() {
+  const takeaways = state.report?.takeaways ?? [];
+  if (!takeaways.length) return;
+  const header = `### Section 3 · Strategic Key Takeaways (${state.report.date})\n\n`;
+  const body = takeaways.map((t, idx) => `${idx + 1}. ${t}`).join("\n\n");
+  try {
+    await navigator.clipboard.writeText(header + body);
+    announce("Key takeaways copied to clipboard");
+  } catch {
+    announce("Could not copy takeaways", "error");
   }
 }
 
@@ -1604,7 +2160,12 @@ function renderPrice() {
   if (data.error) {
     return body.replaceChildren(
       h("p", { class: "notice notice-error", role: "alert" }, data.error),
-      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", "data-price": code, ...(exchange ? { "data-exchange": exchange } : {}), ...agent("btn_price_retry") }, "Try again")),
+      h(
+        "div",
+        { class: "dialog-actions", style: "display: flex; gap: 0.5rem; flex-wrap: wrap;" },
+        h("button", { class: "btn", type: "button", "data-price": code, ...(exchange ? { "data-exchange": exchange } : {}), ...agent("btn_price_retry") }, "Try again"),
+        h("a", { class: "btn btn-outline", href: googleStockSearchUrl(code, exchange), target: "_blank", rel: "noopener noreferrer", ...agent("link_price_error_google_search") }, `Search stock on Google (${exchange || "ASX"} ${code}) `, icon("i-external")),
+      ),
     );
   }
   const period = PERIODS.find((p) => p.id === state.pricePeriod) ?? PERIODS[1];
@@ -1655,7 +2216,12 @@ function renderPrice() {
       fact("Low", fmtLocal(Math.min(...closes), data.currency)),
     ),
     priceTable(pts, data.currency, period),
-    h("p", { class: "hint" }, `${fxNote} Daily closes, delayed. Source: Yahoo Finance.`),
+    h(
+      "p",
+      { class: "hint" },
+      `${fxNote} Daily closes, delayed. `,
+      h("a", { href: googleStockSearchUrl(code, exchange), target: "_blank", rel: "noopener noreferrer", style: "display: inline-flex; align-items: center; gap: 0.25rem;", ...agent("link_price_dialog_google") }, `Live quote on Google (${(exchange || "ASX")} ${code}) `, icon("i-external")),
+    ),
   );
 }
 
@@ -1680,6 +2246,15 @@ async function openPrice(code, exchange = null) {
 
 function bindEvents() {
   document.addEventListener("click", (event) => {
+    if (!event.target.closest("#appbar-account") && !$("#account-dropdown")?.hidden) {
+      toggleAccountDropdown(false);
+    }
+    if (event.target.closest('[data-action="open-admin-panel"]')) {
+      event.preventDefault();
+      toggleAccountDropdown(false);
+      navigate("admin");
+      return;
+    }
     const nav = event.target.closest("[data-nav]");
     if (nav) {
       event.preventDefault();
@@ -1702,7 +2277,52 @@ function bindEvents() {
       saveSettings({ watchlist: state.settings.watchlist.filter((c) => c !== remove.dataset.remove) }, { message: `${remove.dataset.remove} removed from watchlist` });
       return;
     }
+    const postcardBtn = event.target.closest(".postcard[data-postcard]");
+    if (postcardBtn) {
+      event.preventDefault();
+      selectPostcard(postcardBtn.dataset.postcard);
+      return;
+    }
+    const drawerCloseBtn = event.target.closest("#drawer-close-btn");
+    if (drawerCloseBtn) {
+      event.preventDefault();
+      state.activePostcard = null;
+      updatePostcardDeck();
+      return;
+    }
     if (event.target.closest('[data-action="copy-md"]')) copyMarkdown();
+    if (event.target.closest('[data-action="copy-takeaways"]')) copyTakeaways();
+    const toggleAll = event.target.closest('[data-action="toggle-all-confirmed"]');
+    if (toggleAll) {
+      event.stopPropagation();
+      toggleAllConfirmed();
+      return;
+    }
+    const briefHead = event.target.closest("#daily-brief-toggle");
+    if (briefHead && !event.target.closest("button:not(.collapse-toggle-btn), a")) {
+      toggleDailyBrief();
+      return;
+    }
+    const sectorsHead = event.target.closest("#sectors-toggle");
+    if (sectorsHead && !event.target.closest("button:not(.collapse-toggle-btn), a")) {
+      toggleSectors();
+      return;
+    }
+    const confirmedHead = event.target.closest("#confirmed-section-toggle");
+    if (confirmedHead && !event.target.closest("button:not(.collapse-toggle-btn), a")) {
+      toggleConfirmedSection();
+      return;
+    }
+    const upcomingHead = event.target.closest("#upcoming-section-toggle");
+    if (upcomingHead && !event.target.closest("button:not(.collapse-toggle-btn), a")) {
+      toggleUpcomingSection();
+      return;
+    }
+    const confirmedRow = event.target.closest("#confirmed-table tr.row");
+    if (confirmedRow && !event.target.closest("button, a, input, select")) {
+      confirmedRow.classList.toggle("is-collapsed");
+      return;
+    }
     if (event.target.closest("[data-close]")) $("#detail").close();
     const unlock = event.target.closest("[data-unlock]");
     if (unlock) {
@@ -1723,6 +2343,38 @@ function bindEvents() {
   for (const id of ["#detail", "#token-dialog", "#price-dialog"]) {
     $(id).addEventListener("click", (event) => {
       if (event.target === event.currentTarget) event.currentTarget.close(); // backdrop click
+    });
+  }
+  const postcardDeck = $("#postcard-deck");
+  if (postcardDeck) {
+    postcardDeck.addEventListener("keydown", (e) => {
+      const card = e.target.closest(".postcard[data-postcard]");
+      if (!card) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectPostcard(card.dataset.postcard);
+      }
+    });
+  }
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#account-dropdown")?.hidden) {
+      toggleAccountDropdown(false);
+      return;
+    }
+    if (e.key === "Escape" && state.activePostcard && !$("#detail")?.open && !$("#auth-dialog")?.open && !$("#price-dialog")?.open) {
+      state.activePostcard = null;
+      updatePostcardDeck();
+    }
+  });
+
+  for (const id of ["#daily-brief-toggle", "#sectors-toggle", "#confirmed-section-toggle", "#upcoming-section-toggle"]) {
+    const el = $(id);
+    if (!el) continue;
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        el.click();
+      }
     });
   }
   $("#wallet-btn").addEventListener("click", openWallet);
@@ -1773,7 +2425,9 @@ function bindEvents() {
     }, 150);
   });
   for (const [id, key] of [["#f-sector", "sector"], ["#f-jur", "jur"], ["#f-source", "source"]]) {
-    $(id).addEventListener("change", (event) => {
+    const el = $(id);
+    if (!el) continue;
+    el.addEventListener("change", (event) => {
       state.filters[key] = event.target.value;
       render();
     });
@@ -1800,7 +2454,10 @@ function bindEvents() {
   $("#f-clear").addEventListener("click", () => {
     Object.assign(state.filters, { q: "", scope: "all", sector: "", jur: "", source: "" });
     $("#f-search").value = "";
-    for (const id of ["#f-sector", "#f-jur", "#f-source"]) $(id).value = "";
+    for (const id of ["#f-sector", "#f-jur", "#f-source"]) {
+      const el = $(id);
+      if (el) el.value = "";
+    }
     for (const b of $$(".seg [data-scope]")) b.setAttribute("aria-checked", String(b.dataset.scope === "all"));
     render();
   });
@@ -1840,7 +2497,20 @@ async function init() {
     history.replaceState(null, "", `${location.pathname}${params.size ? `?${params}` : ""}${location.hash}`);
   }
   bindEvents();
-  setView(location.hash.slice(1) || "overview", { scroll: false });
+  if (isMobile()) {
+    document.documentElement.dataset.mobile = "true";
+  }
+  const initialHash = location.hash.slice(1);
+  if (initialHash === "confirmed") state.activePostcard = "confirmed";
+  else if (initialHash === "upcoming") state.activePostcard = "upcoming";
+  else state.activePostcard = null;
+  setView(initialHash || "overview", { scroll: false });
+  updatePostcardDeck();
+  // Everything is collapsed on entering the web app
+  toggleDailyBrief(false);
+  toggleSectors(false);
+  toggleConfirmedSection(false);
+  toggleUpcomingSection(false);
   await track(
     (async () => {
       try {

@@ -1,4 +1,4 @@
-﻿import { aiConfigured } from "./config.js";
+import { aiConfigured } from "./config.js";
 import { loadAsxDirectory } from "./sources/asxDirectory.js";
 import { fetchContractNotices } from "./sources/austender.js";
 import { CONTRACT_NOUN_RE, contractCandidates, fetchAnnouncements } from "./sources/asxAnnouncements.js";
@@ -8,7 +8,7 @@ import { fetchMarketData } from "./sources/market.js";
 import { EntityResolver, coreName, entityKey } from "./lib/entities.js";
 import {
   CONTRACT_RE, FINANCING_RE, STAGE_LABELS, contractStatus, detectGov, exclusionReason, extractVendorNames,
-  forwardWindow, hasForeignContext, hostOf, isAustralianContext, mentionedAsCounterparty, sectorFor,
+  forwardWindow, hasForeignContext, hostOf, isAustralianContext, isNamed, isSpeculative, mentionedAsCounterparty, sectorFor,
 } from "./lib/classify.js";
 import { dedupe } from "./lib/dedupe.js";
 import { buildTakeaways } from "./lib/takeaways.js";
@@ -156,12 +156,12 @@ async function austenderItems({ since, now, resolver, settings, track }) {
 
 export function announcementToItem(a, { resolver, settings, now }) {
   const lead = `${a.headline}. ${(a.text ?? "").slice(0, 1800)}`;
-  if (exclusionReason(a.headline)) return null;
+  if (exclusionReason(a.headline) || isSpeculative(a.headline) || isSpeculative(lead)) return null;
   const fromHeadline = contractStatus(a.headline);
   let { status, stage } = fromHeadline.status ? fromHeadline : contractStatus(lead);
   // A listed company announcing "Contract with X" is reporting a done deal.
   if (!status && CONTRACT_NOUN_RE.test(a.headline)) [status, stage] = ["confirmed", "awarded"];
-  if (!status) return null;
+  if (!status || stage === "speculation") return null;
 
   // Financing announcements only count when a government body is the counterparty up front.
   // Regulators (ASIC, TGA...) appear in filings as regulators, so they never make a customer here,
@@ -251,10 +251,10 @@ function newsCompanies(n, text, resolver) {
 export function newsToItem(n, { resolver, now }) {
   const text = `${n.title}. ${n.summary}`;
   const host = hostOf(n.publisherUrl || n.link);
-  if (host.startsWith("jobs.") || exclusionReason(text)) return null;
+  if (host.startsWith("jobs.") || exclusionReason(text) || isSpeculative(n.title) || isSpeculative(text)) return null;
   const fromTitle = contractStatus(n.title);
   const { status, stage } = fromTitle.status ? fromTitle : contractStatus(text);
-  if (!status || !CONTRACT_RE.test(text)) return null;
+  if (!status || stage === "speculation" || !CONTRACT_RE.test(text)) return null;
   const australian = isAustralianContext(text, host);
   const foreign = hasForeignContext(text);
   const gov = detectGov(text, { infer: true });
@@ -268,9 +268,12 @@ export function newsToItem(n, { resolver, now }) {
   if (gov.weak && (foreign || !(australian || (gov.inferred && gov.jurisdiction !== "Unknown")))) return null;
 
   const companies = newsCompanies(n, text, resolver);
+  // Both confirmed and upcoming items must have at least one specifically named commercial company.
+  // "If something is not named, and a project sounds like speculation, we do not use that data."
+  if (!companies.length || !companies.some((c) => isNamed(c.name || c.display))) return null;
+
   const value = firstMoney(n.title, 10_000) ?? firstMoney(n.summary, 10_000);
   const kind = status === "forward" ? "upcoming" : "confirmed";
-  if (kind === "confirmed" && !companies.length && !(value && value.amount >= 10e6)) return null;
   return {
     id: `news-${shortHash(n.link || n.title)}`,
     kind,
@@ -306,31 +309,10 @@ async function newsItems({ since, now, resolver, track }) {
 async function tenderItems({ now, until, track }) {
   const tenders = await fetchClosingTenders({ until });
   track.part("atm", 1);
-  const today = sydneyDate(now);
-  const items = tenders.map((e) => {
-    const closes = new Date(e.closes);
-    const closeLabel = closes.toLocaleString("en-AU", { timeZone: "Australia/Sydney", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    return {
-      id: `atm-${shortHash(e.atmId)}`,
-      kind: "upcoming",
-      date: today,
-      title: e.title,
-      companies: [],
-      agency: e.agency,
-      jurisdiction: "Federal",
-      value: null,
-      scope: truncate(e.description || e.title, 200),
-      sector: sectorFor(`${e.title} ${e.category} ${e.description}`, detectGov(e.agency)),
-      status: "forward",
-      stage: "tender-closing",
-      window: { label: `Closes ${closeLabel}`, from: today, to: sydneyDate(closes) },
-      context: `AusTender approach to market ${e.atmId} closes ${e.closesText} (Canberra time). Open market; category: ${e.category}.`,
-      sources: [{ type: "atm", title: `AusTender ${e.atmId}: ${e.title}`, url: e.url, publisher: "AusTender", date: today }],
-      confidence: "high",
-      flags: [],
-    };
-  });
-  return { items, detail: `${items.length} tenders closing by ${sydneyDate(until)}` };
+  // AusTender open tender approaches to market have no named commercial vendor yet.
+  // In accordance with the rule: "If something is not named, and a project sounds like speculation, we do not use that data",
+  // open tenders without named vendors are omitted from the brief.
+  return { items: [], detail: `${tenders.length} open tenders scanned (omitted: no named commercial contractor)` };
 }
 
 // ---------------------------------------------------------------- Report assembly
@@ -407,6 +389,9 @@ export async function buildStandardReport({ settings, onProgress = () => {}, now
 
   track.stage("Merging duplicate stories", 82);
   const merged = dedupe(results.flatMap((r) => r.items));
+  const hasNamed = (i) => i.companies && i.companies.length > 0 && i.companies.some((c) => isNamed(c.name || c.display));
+  const notSpec = (i) => i.stage !== "speculation" && !isSpeculative(`${i.title || ""} ${i.scope || ""} ${i.context || ""}`);
+  const validItems = merged.filter((i) => hasNamed(i) && notSpec(i));
   const report = {
     version: 1,
     app: "MY ASX Options",
@@ -415,8 +400,8 @@ export async function buildStandardReport({ settings, onProgress = () => {}, now
     mode: "standard",
     generatedAt: new Date().toISOString(),
     window: { pastFrom: sydneyDate(since), pastTo: sydneyDate(now), forwardTo: sydneyDate(until) },
-    confirmed: merged.filter((i) => i.kind === "confirmed"),
-    upcoming: merged.filter((i) => i.kind === "upcoming"),
+    confirmed: validItems.filter((i) => i.kind === "confirmed"),
+    upcoming: validItems.filter((i) => i.kind === "upcoming"),
     takeaways: [],
     market: {},
     sources,

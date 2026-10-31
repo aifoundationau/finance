@@ -124,21 +124,27 @@ export const logoutCookie = (req) => cookie(ADMIN_COOKIE, "", { maxAge: 0, secur
 
 // ------------------------------------------------------------------ registered users
 
-/** The signed-in person ({ uid, email, name, role }), or null. */
+/** The signed-in person ({ uid, email, name, role, picture? }), or null. */
 export function currentUser(req) {
   const session = verify(parseCookies(req.headers.cookie)[USER_COOKIE]);
   if (!session?.uid) return null;
-  return { uid: session.uid, email: session.email, name: session.name, role: session.role };
+  return {
+    uid: session.uid,
+    email: session.email,
+    name: session.name,
+    role: session.role,
+    ...(session.picture ? { picture: session.picture } : {}),
+  };
 }
 
 /**
  * Cookies that sign in a registered person: their user session, plus a superadmin session when
  * their address is a listed superadmin. Also ends the Google sign-in attempt.
  */
-export function signInCookies(req, { uid, email, name, role }) {
+export function signInCookies(req, { uid, email, name, role, picture }) {
   const superadmin = authMode() === "google" && superadminEmails().has(email);
   // Lax, so the session also counts when the person arrives from a link on another site.
-  const session = cookie(USER_COOKIE, sign({ uid, email, name, role, exp: Date.now() + USER_SESSION_MS }), { maxAge: USER_SESSION_MS / 1000, sameSite: "Lax", secure: isHttps(req) });
+  const session = cookie(USER_COOKIE, sign({ uid, email, name, role, ...(picture ? { picture } : {}), exp: Date.now() + USER_SESSION_MS }), { maxAge: USER_SESSION_MS / 1000, sameSite: "Lax", secure: isHttps(req) });
   return { superadmin, cookies: [clearOAuthCookie(req), session, ...(superadmin ? [sessionCookie(req, email)] : [])] };
 }
 

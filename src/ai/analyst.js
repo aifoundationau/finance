@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ANALYST_BRIEF, REPORT_SCHEMA, researchPrompt, structurePrompt } from "./prompt.js";
 import { tickerLabel } from "../lib/entities.js";
-import { contractStatus, hostOf } from "../lib/classify.js";
+import { contractStatus, hostOf, isNamed, isSpeculative } from "../lib/classify.js";
 import { addDays, sydneyDate } from "../lib/dates.js";
 import { displayName, formatMoney, shortHash } from "../lib/text.js";
 
@@ -114,7 +114,6 @@ async function structure(client, { markdown, citations }) {
 }
 
 const TICKER_RE = /^\s*([A-Za-z]{2,6})\s*:\s*([A-Za-z0-9.\-]{1,10})\s*$/;
-const isNamed = (s) => Boolean(s) && !/^(?:not named|n\/a|none|unknown|tbc|tba|various|multiple|undisclosed|-|—)$/i.test(String(s).trim());
 const safeUrl = (u) => (/^https?:\/\//i.test(u ?? "") ? u : null);
 
 /** Trust the live ASX list over the model for ASX tickers; keep its overseas/private labels otherwise. */
@@ -147,13 +146,15 @@ function aiSource(row, date) {
 }
 
 function confirmedItem(row, resolver, today) {
+  if (!isNamed(row.company)) return null;
+  if (isSpeculative(`${row.source_title || ""} ${row.scope || ""}`)) return null;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(row.date) ? row.date : today;
   return {
     id: `ai-${shortHash(`${row.company}|${row.agency}|${row.scope}`)}`,
     kind: "confirmed",
     date,
     title: row.source_title || row.scope,
-    companies: isNamed(row.company) ? [resolveCompany(row, resolver)] : [],
+    companies: [resolveCompany(row, resolver)],
     agency: row.agency || null,
     jurisdiction: row.jurisdiction === "Unknown" ? null : row.jurisdiction,
     value: aiValue(row),
@@ -168,20 +169,25 @@ function confirmedItem(row, resolver, today) {
 }
 
 function upcomingItem(row, resolver, today) {
+  const namedVendors = (row.vendors ?? []).filter((v) => isNamed(v.company));
+  if (!namedVendors.length) return null;
+  const projectText = `${row.context || ""} ${row.project || ""}`;
+  const stage = contractStatus(projectText).stage ?? "selected";
+  if (stage === "speculation" || isSpeculative(projectText)) return null;
   const due = /\b(\d{4}-\d{2}-\d{2})\b/.exec(row.window ?? "")?.[1];
   return {
     id: `ai-${shortHash(`${row.project}|${row.procuring_body}`)}`,
     kind: "upcoming",
     date: today,
     title: row.project,
-    companies: (row.vendors ?? []).filter((v) => isNamed(v.company)).map((v) => resolveCompany(v, resolver)),
+    companies: namedVendors.map((v) => resolveCompany(v, resolver)),
     agency: row.procuring_body || null,
     jurisdiction: row.jurisdiction === "Unknown" ? null : row.jurisdiction,
     value: aiValue(row),
     scope: row.project,
     sector: row.sector,
     status: "forward",
-    stage: contractStatus(`${row.context} ${row.project}`).stage ?? "speculation",
+    stage,
     window: { label: row.window || "Next 7 days", from: today, to: due && due >= today ? due : addDays(today, 7) },
     context: row.context,
     sources: aiSource(row, today),
@@ -193,8 +199,8 @@ function upcomingItem(row, resolver, today) {
 /** The structured AI output as report items, with tickers re-checked against the ASX list. */
 export function itemsFromStructured(data, resolver, today) {
   return {
-    confirmed: (data.confirmed ?? []).map((row) => confirmedItem(row, resolver, today)),
-    upcoming: (data.upcoming ?? []).map((row) => upcomingItem(row, resolver, today)),
+    confirmed: (data.confirmed ?? []).map((row) => confirmedItem(row, resolver, today)).filter(Boolean),
+    upcoming: (data.upcoming ?? []).map((row) => upcomingItem(row, resolver, today)).filter(Boolean),
     takeaways: (data.takeaways ?? []).slice(0, 3),
   };
 }

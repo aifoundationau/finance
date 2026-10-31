@@ -247,7 +247,7 @@ export const REPORT = obj(
     confirmed: { type: "array", items: REPORT_ITEM },
     upcoming: { type: "array", items: REPORT_ITEM },
     other: { type: "array", items: REPORT_ITEM },
-    takeaways: { type: "array", items: str("Takeaway"), maxItems: 3 },
+    takeaways: { type: "array", items: str("Takeaway"), maxItems: 10 },
     market: { type: "object", additionalProperties: MARKET },
     sources: { type: "array", items: SOURCE_HEALTH },
     stats: obj("Stats", {

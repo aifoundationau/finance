@@ -26,11 +26,17 @@ test("news: a foreign defence department is not the Australian one", () => {
   assert.equal(item, null);
 });
 
-test("news: a shortlist with no named vendors still reaches Section 2", () => {
-  const item = newsToItem(news("Four shortlisted for CQ gas tender"), { resolver: r, now: NOW });
+test("news: an item with no named vendors or speculation is left out", () => {
+  assert.equal(newsToItem(news("Four shortlisted for CQ gas tender"), { resolver: r, now: NOW }), null);
+  assert.equal(newsToItem(news("Queensland Land Court approves proposed $1b coal mine"), { resolver: r, now: NOW }), null);
+  assert.equal(newsToItem(news("Gig Guide: Ex-mining boss tapped to speed up Defence work"), { resolver: r, now: NOW }), null);
+});
+
+test("news: an upcoming contract with a named vendor reaches Section 2", () => {
+  const item = newsToItem(news("BESIX Watpac named preferred builder for new Hobart Stadium"), { resolver: r, now: NOW });
   assert.equal(item.kind, "upcoming");
-  assert.equal(item.jurisdiction, "QLD");
-  assert.deepEqual(item.companies, []);
+  assert.equal(item.companies[0].name, "BESIX Watpac");
+  assert.equal(item.stage, "preferred");
 });
 
 test("news: ASX contract news with a private customer is left out", () => {

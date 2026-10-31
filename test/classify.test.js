@@ -20,6 +20,8 @@ test("topic exclusions from the brief", () => {
   assert.equal(exclusionReason("Preferred Tenderer for Taroom Trough Block PLR2026-1-7"), "resource-permit");
   assert.equal(exclusionReason("Alstom Wins 2026 Australian Good Design Award"), "prize");
   assert.equal(exclusionReason("Conroy targets 'rot' in Defence after $15.6m bungle"), "policy");
+  assert.equal(exclusionReason("Gig Guide: Ex-mining boss tapped to speed up Defence work"), "speculation");
+  assert.equal(exclusionReason("Queensland Land Court approves proposed $1b coal mine"), "speculation");
   assert.equal(exclusionReason("Excite secures $2.9M contract with federal regulator"), null);
 });
 

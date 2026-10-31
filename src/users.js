@@ -25,14 +25,53 @@ export async function registerUser(profile, { directory } = {}) {
 
 const localDirectory = {
   uidFor: async (profile) => `google_${profile.sub}`,
-  signIn: (uid, { email, name }) =>
+  signIn: (uid, { email, name, picture }) =>
     storage().transact("app", "users", (doc) => {
       const now = new Date().toISOString();
       const existing = doc?.[uid];
-      const user = existing ? { ...existing, email, name, lastLoginAt: now } : { uid, email, name, role: DEFAULT_ROLE, registeredAt: now, lastLoginAt: now };
+      const user = existing
+        ? { ...existing, email, name, ...(picture ? { photoURL: picture } : {}), lastLoginAt: now }
+        : { uid, email, name, ...(picture ? { photoURL: picture } : {}), role: DEFAULT_ROLE, registeredAt: now, lastLoginAt: now };
       return { value: { ...doc, [uid]: user }, result: { role: user.role, created: !existing } };
     }),
 };
+
+const pictureCache = new Map();
+
+/** Resolves a signed-in user's Google profile photo URL when not already embedded in their session cookie. */
+export async function resolveUserPicture(user) {
+  if (!user) return null;
+  if (user.picture) return user;
+  if (pictureCache.has(user.uid)) {
+    const cached = pictureCache.get(user.uid);
+    return cached ? { ...user, picture: cached } : user;
+  }
+  let pic = "";
+  try {
+    if (storage().kind === "firestore") {
+      const app = await firebaseApp();
+      const { getFirestore } = await import("firebase-admin/firestore");
+      const db = getFirestore(app, SHARED_DATABASE);
+      const snap = await db.collection("users").doc(user.uid).get();
+      pic = snap.exists ? String(snap.get("photoURL") || "") : "";
+      if (!pic) {
+        const { getAuth } = await import("firebase-admin/auth");
+        const authUser = await getAuth(app).getUser(user.uid).catch(() => null);
+        pic = String(authUser?.photoURL || "");
+      }
+    } else {
+      const usersDoc = await storage().get("app", "users");
+      pic = String(usersDoc?.[user.uid]?.photoURL || "");
+    }
+  } catch {
+    // Non-fatal fallback
+  }
+  if (/^https:\/\//.test(pic)) {
+    pictureCache.set(user.uid, pic);
+    return { ...user, picture: pic };
+  }
+  return user;
+}
 
 // ------------------------------------------------------------------ shared AI Foundation directory
 

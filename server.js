@@ -18,7 +18,7 @@ import {
   ADMIN_COOKIE, AuthError, WALLET_COOKIE, adminIdentity, authMode, clearOAuthCookie, cookie, currentUser, googleCallback, googleConfigured,
   googleStart, isAdmin, isHttps, login, logoutCookie, oauthReturnTo, parseCookies, signInCookies, signOutCookies,
 } from "./src/admin.js";
-import { registerUser } from "./src/users.js";
+import { registerUser, resolveUserPicture } from "./src/users.js";
 import { idempotent } from "./src/idempotency.js";
 import { assertValid } from "./public/shared/json-schema.js";
 import {
@@ -39,7 +39,7 @@ const MIME = {
 };
 const SECURITY_HEADERS = {
   "content-security-policy":
-    "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "default-src 'self'; img-src 'self' data: https://*.googleusercontent.com https://*.ggpht.com; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   "x-content-type-options": "nosniff",
   "referrer-policy": "no-referrer",
   "cross-origin-opener-policy": "same-origin",
@@ -174,7 +174,7 @@ async function commerceForViewer(ctx) {
     admin: who.admin,
     adminIdentity: who.admin ? adminIdentity(ctx.req) : null,
     adminAuth: authMode(),
-    user: currentUser(ctx.req),
+    user: await resolveUserPicture(currentUser(ctx.req)),
     googleSignIn: googleConfigured(),
   };
 }
@@ -373,7 +373,7 @@ async function handleAuth(req, res, url) {
     const { profile } = await googleCallback(req, url);
     const user = await registerUser(profile);
     telemetry("info", user.created ? "user.registered" : "user.signed_in", { uid: user.uid, role: user.role });
-    const { superadmin, cookies } = signInCookies(req, user);
+    const { superadmin, cookies } = signInCookies(req, { ...user, picture: profile.picture });
     if (superadmin) telemetry("info", "admin.signed_in", { method: "google", email: user.email });
     // Started from the Superadmin panel with an address that isn't listed: signed in, but say why
     // the panel stays locked.
