@@ -1,9 +1,9 @@
 # Next Development Instructions
 
-## Current Status
-- Production deployment verified live at https://finance.aifoundation.net.au (Vercel deployment: `dpl_4XCG5L82fKEfbbuQ6N6xoseWjDWK`).
-- Quick-action watch toggle button active in Confirmed and Upcoming contracts feeds.
-- Test suite: 88/88 passing.
+## Current Step
+1. Live contract count badge on Watchlist filter pill committed and pushed to GitHub main.
+   - Files: `public/index.html`, `public/app.js`, `public/styles.css`
+   - Test suite: 88/88 passing
 
 ## Next Recommended Task
-- Add a live match counter badge to the "Watchlist" filter pill in the main filter bar (e.g. "Watchlist (3)"), indicating how many active contracts match the user's saved tickers.
+2. Deploy latest update to production on Vercel.

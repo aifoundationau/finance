@@ -1021,6 +1021,23 @@ function renderCounts() {
     const el = $(`.nav-count[data-count="${key}"]`);
     if (el) el.textContent = r ? String(filtered(r[key]).length) : "";
   }
+  const watchPill = $("#watchlist-scope-count");
+  if (watchPill) {
+    if (!r) {
+      watchPill.textContent = "";
+      watchPill.classList.remove("has-matches");
+      watchPill.removeAttribute("aria-label");
+    } else {
+      const matchCount = [...(r.confirmed ?? []), ...(r.upcoming ?? [])].filter(isWatch).length;
+      watchPill.textContent = matchCount > 0 ? String(matchCount) : "";
+      watchPill.classList.toggle("has-matches", matchCount > 0);
+      if (matchCount > 0) {
+        watchPill.setAttribute("aria-label", matchCount === 1 ? "1 matching contract" : `${matchCount} matching contracts`);
+      } else {
+        watchPill.removeAttribute("aria-label");
+      }
+    }
+  }
 }
 
 function renderSourcesTable() {

@@ -1362,6 +1362,10 @@ select {
   scrollbar-width: none;
 }
 .seg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   flex: 1 0 auto;
   min-height: calc(var(--tap) - 0.4rem);
   padding: 0.3rem 0.7rem;
@@ -1374,6 +1378,36 @@ select {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+}
+.seg-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  transition: all 0.15s ease;
+}
+.seg-count:empty {
+  display: none;
+}
+.seg-count.has-matches {
+  background: rgba(227, 179, 65, 0.22);
+  color: #9a6c0b;
+}
+:root[data-theme="dark"] .seg-count.has-matches {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+.seg button[aria-checked="true"] .seg-count.has-matches {
+  background: #e3b341;
+  color: #1a1a1a;
 }
 .seg button[aria-checked="true"],
 .seg button[aria-selected="true"],
