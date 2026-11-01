@@ -849,16 +849,56 @@ function uniqueCompanies(item) {
   });
 }
 
+function tickerGroup(c, where) {
+  const isListed = Boolean(c.code) && (c.listing === "ASX" || c.listing === "Overseas");
+  const chip = tickerChip(c, where);
+  if (!isListed || !c.code) return chip;
+  const isWatched = Boolean(state.settings?.watchlist?.includes(c.code.toUpperCase()));
+  const starBtn = h(
+    "button",
+    {
+      type: "button",
+      class: `btn-star-toggle${isWatched ? " is-watched" : ""}`,
+      "data-toggle-watch": c.code,
+      "aria-label": isWatched ? `Remove ${c.code} from watchlist` : `Add ${c.code} to watchlist`,
+      "aria-pressed": String(isWatched),
+      title: isWatched ? `Remove ${c.code} from watchlist` : `Add ${c.code} to watchlist`,
+      ...agent(`btn_watch_toggle_${where}_${c.code}`),
+    },
+    icon(isWatched ? "i-star" : "i-star-outline", "icon-star"),
+  );
+  return h("div", { class: "ticker-item-group" }, chip, starBtn);
+}
+
 function tickersCell(item) {
   if (!item.companies.length) return h("span", { class: "muted" }, "—");
-  return h("div", { class: "tickers" }, uniqueCompanies(item).map((c) => tickerChip(c, item.id)));
+  return h("div", { class: "tickers" }, uniqueCompanies(item).map((c) => tickerGroup(c, item.id)));
 }
 
 function companyCell(item, emptyLabel = "Not named") {
   const names = item.companies.map((c) => c.display);
   const sub = asxCompanies(item)[0]?.industry ?? (item.companies[0]?.listing === "Unverified" ? "Listing unverified" : null);
+  const asxCode = asxCompanies(item)[0]?.code;
+  const isWatched = isWatch(item);
   return [
-    isWatch(item) ? [icon("i-star", "watch-star"), h("span", { class: "visually-hidden" }, "Watchlist: ")] : null,
+    isWatched && asxCode
+      ? h(
+          "button",
+          {
+            type: "button",
+            class: "watch-star-btn",
+            "data-toggle-watch": asxCode,
+            "aria-label": `Remove ${asxCode} from watchlist`,
+            "aria-pressed": "true",
+            title: `Remove ${asxCode} from watchlist`,
+            ...agent(`btn_watch_star_company_${item.id}_${asxCode}`),
+          },
+          icon("i-star", "watch-star"),
+          h("span", { class: "visually-hidden" }, "Watchlist: "),
+        )
+      : isWatched
+        ? [icon("i-star", "watch-star"), h("span", { class: "visually-hidden" }, "Watchlist: ")]
+        : null,
     h("button", { class: "company-btn", type: "button", "data-open": item.id, "aria-haspopup": "dialog", ...agent(`btn_open_details_${item.id}`) }, names.length ? names.join(", ") : emptyLabel),
     sub ? h("span", { class: "cell-sub" }, sub) : null,
   ];

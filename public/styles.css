@@ -2848,6 +2848,59 @@ button.ticker-btn:hover {
   fill: #e3b341;
   color: #e3b341;
 }
+.ticker-item-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.btn-star-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border-radius: var(--radius-sm, 0.35rem);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+.btn-star-toggle:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.btn-star-toggle .icon-star {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.btn-star-toggle.is-watched {
+  color: #e3b341;
+}
+.btn-star-toggle.is-watched .icon-star {
+  fill: #e3b341;
+}
+.btn-star-toggle.is-watched:hover {
+  background: rgba(227, 179, 65, 0.15);
+  border-color: rgba(227, 179, 65, 0.3);
+}
+button.watch-star-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -0.1em;
+  transition: opacity 0.15s ease;
+}
+button.watch-star-btn:hover {
+  opacity: 0.75;
+}
 .dialog-body {
   flex: 1;
   overflow-y: auto;
