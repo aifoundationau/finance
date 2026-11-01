@@ -2802,6 +2802,52 @@ button.ticker-btn:hover {
 .dialog-heading h2 {
   font-size: var(--fs-lg);
 }
+.dialog-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: center;
+}
+.company-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.btn-watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-watch:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-watch .icon-star,
+.btn-watch .icon {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.btn-watch.is-watched {
+  background: rgba(227, 179, 65, 0.15);
+  border-color: #e3b341;
+  color: #9a6c0b;
+}
+.btn-watch.is-watched .icon-star,
+.btn-watch.is-watched .icon {
+  fill: #e3b341;
+  color: #e3b341;
+}
 .dialog-body {
   flex: 1;
   overflow-y: auto;

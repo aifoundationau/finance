@@ -50,6 +50,7 @@ const state = {
   authError: null,
   view: "overview",
   activePostcard: null,
+  activeDetailId: null,
   filters: { q: "", scope: "all", sector: "", jur: "", source: "" },
   sort: "date",
   history: {},
@@ -1076,10 +1077,32 @@ function companyDetail(c) {
               googleStockLink,
             )
           : null);
+  const isWatched = Boolean(c.code && state.settings?.watchlist?.includes(c.code.toUpperCase()));
+  const watchBtn = (c.listing === "ASX" || c.listing === "Overseas") && c.code
+    ? h(
+        "button",
+        {
+          type: "button",
+          class: `btn-watch${isWatched ? " is-watched" : ""}`,
+          "data-toggle-watch": c.code,
+          "aria-pressed": String(isWatched),
+          title: isWatched ? `Remove ${c.code} from watchlist` : `Add ${c.code} to watchlist`,
+          ...agent(`btn_company_watch_${c.code}`),
+        },
+        icon(isWatched ? "i-star" : "i-star-outline", "icon-star"),
+        h("span", { class: "watch-btn-text" }, isWatched ? "In Watchlist" : "Watch"),
+      )
+    : null;
+
   return h(
     "div",
     { class: "company-card" },
-    h("div", { class: "company-card-head" }, h("strong", {}, c.display), tickerChip(c, "detail")),
+    h(
+      "div",
+      { class: "company-card-head" },
+      h("strong", {}, c.display),
+      h("div", { class: "company-head-actions" }, tickerChip(c, "detail"), watchBtn),
+    ),
     m
       ? h(
           "dl",
@@ -1195,6 +1218,7 @@ function selectDetailTab(id, { focus = false } = {}) {
 }
 
 function openDetail(id) {
+  state.activeDetailId = id;
   const item = allItems().find((i) => i.id === id);
   if (!item) return;
   const kindLabel = item.kind === "confirmed" ? "Confirmed contract" : "Upcoming contract";
@@ -2585,6 +2609,20 @@ function renderPrice() {
   const displayLabel = exchange ? `${exchange}: ${code}` : `ASX: ${code}`;
   $("#price-title").textContent = displayLabel;
   $("#price-eyebrow").textContent = data?.name ?? marketOf(code)?.name ?? "Price history";
+
+  const isWatched = Boolean(code && state.settings?.watchlist?.includes(code.toUpperCase()));
+  const watchBtn = $("#price-watch-btn");
+  if (watchBtn) {
+    watchBtn.hidden = !code;
+    watchBtn.setAttribute("aria-pressed", String(isWatched));
+    watchBtn.classList.toggle("is-watched", isWatched);
+    watchBtn.dataset.watchCode = code || "";
+    const txt = $(".watch-btn-text", watchBtn);
+    if (txt) txt.textContent = isWatched ? "In Watchlist" : "Watch";
+    const use = $("use", watchBtn);
+    if (use) use.setAttribute("href", isWatched ? "#i-star" : "#i-star-outline");
+  }
+
   body.setAttribute("aria-busy", String(!data));
   if (!data) return body.replaceChildren(h("p", { class: "muted", role: "status" }, "Loading price history…"));
   if (data.error) {
@@ -2901,6 +2939,23 @@ function bindEvents() {
     const price = event.target.closest("[data-price]");
     if (price) return openPrice(price.dataset.price, price.dataset.exchange);
     if (event.target.closest("[data-close-price]")) return $("#price-dialog").close();
+    const watchToggle = event.target.closest("#price-watch-btn, [data-toggle-watch]");
+    if (watchToggle) {
+      event.preventDefault();
+      const code = (watchToggle.dataset.watchCode || watchToggle.dataset.toggleWatch || "").toUpperCase();
+      if (!code) return;
+      const current = state.settings?.watchlist || [];
+      const isWatched = current.includes(code);
+      const next = isWatched ? current.filter((x) => x !== code) : [...new Set([...current, code])];
+      saveSettings(
+        { watchlist: next },
+        { message: isWatched ? `${code} removed from watchlist` : `${code} added to watchlist` }
+      ).then(() => {
+        if ($("#price-dialog")?.open) renderPrice();
+        if ($("#detail")?.open && state.activeDetailId) openDetail(state.activeDetailId);
+      });
+      return;
+    }
     if (event.target.closest("#geo-bar")) {
       event.preventDefault();
       openGeoDialog();
@@ -2974,7 +3029,10 @@ function bindEvents() {
       confirmedRow.classList.toggle("is-collapsed");
       return;
     }
-    if (event.target.closest("[data-close]")) $("#detail").close();
+    if (event.target.closest("[data-close]")) {
+      state.activeDetailId = null;
+      $("#detail").close();
+    }
     const unlock = event.target.closest("[data-unlock]");
     if (unlock) {
       if ($("#detail").open) $("#detail").close();
@@ -2993,7 +3051,10 @@ function bindEvents() {
 
   for (const id of ["#detail", "#token-dialog", "#price-dialog"]) {
     $(id).addEventListener("click", (event) => {
-      if (event.target === event.currentTarget) event.currentTarget.close(); // backdrop click
+      if (event.target === event.currentTarget) {
+        state.activeDetailId = null;
+        event.currentTarget.close(); // backdrop click
+      }
     });
   }
   const postcardDeck = $("#postcard-deck");
