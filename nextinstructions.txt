@@ -1,13 +1,9 @@
 # Next Development Instructions
 
 ## Current Step
-1. Seamless single sign-on implemented for Google superadmins:
-   - Direct recognition via verified Google user session (`USER_COOKIE`) matching `SUPERADMIN_EMAILS` without requiring a secondary login.
-   - Updated `ADMIN_COOKIE` to `SameSite=Lax` to prevent cross-site OAuth callback cookie drop.
-   - Added automatic session synchronization in `server.js` (`viewer`).
-   - Added "Verify access" button and auto-refresh on admin navigation in `public/app.js`.
-   - Two-step confirm delete on Settings Watchlist chips.
-   - Test suite: 88/88 passing.
+1. Unified single sign-on for superadmins and confirm-delete on Settings Watchlist chips committed and pushed to GitHub main (`a4aefcd`).
+   - Files: `src/admin.js`, `server.js`, `public/app.js`, `public/styles.css`, `test/deploy.test.js`
+   - Test suite: 88/88 passing
 
 ## Next Recommended Task
-2. User verification on local dev server (http://127.0.0.1:3000/#admin), then commit and deploy to Vercel production.
+2. Deploy latest update to production on Vercel (or verify production deployment status).
