@@ -1,12 +1,9 @@
 # Next Development Instructions
 
 ## Current Step
-1. Commit and push the Confirmed Contracts quick-action watch toggle button feature.
+1. Confirmed Contracts quick-action watch toggle button committed and pushed to GitHub main (`ebdfcc6`).
    - Files: `public/app.js`, `public/styles.css`
    - Test suite: 88/88 passing
 
-## Upcoming Tasks & Recommendations
-2. Verify in local browser (http://127.0.0.1:3000) that clicking the quick-action star next to any listed ASX contractor in Confirmed Contracts or Upcoming immediately adds/removes it from the watchlist and highlights the row.
-3. Review Firestore rules and ensure production synchronization if any rule changes occur.
-4. Keep data-contracts.MD updated with any new schema or data structures.
-
+## Next Recommended Task
+2. Deploy the latest update to production on Vercel (or verify production deployment status).
