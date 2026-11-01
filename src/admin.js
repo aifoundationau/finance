@@ -7,6 +7,7 @@
 // Sessions are signed, HttpOnly cookies (HMAC-SHA256) rather than server memory, so every server
 // instance accepts them. Superadmin sessions expire after 12 hours, user sessions after 30 days.
 import crypto from "node:crypto";
+import "./config.js";
 
 const SESSION_MS = 12 * 3_600_000;
 const USER_SESSION_MS = 30 * 86_400_000;
@@ -30,11 +31,11 @@ export class AuthError extends Error {
   }
 }
 
-const superadminEmails = () =>
+export const superadminEmails = () =>
   new Set(
     String(process.env.SUPERADMIN_EMAILS ?? "")
       .split(",")
-      .map((e) => e.trim().toLowerCase())
+      .map((e) => e.trim().replace(/^["']|["']$/g, "").toLowerCase())
       .filter(Boolean),
   );
 
@@ -103,30 +104,38 @@ export function verify(token) {
   }
 }
 
-function sessionCookie(req, subject) {
-  return cookie(ADMIN_COOKIE, sign({ sub: subject, exp: Date.now() + SESSION_MS }), { maxAge: SESSION_MS / 1000, secure: isHttps(req) });
+export function sessionCookie(req, subject, { sameSite = "Lax" } = {}) {
+  return cookie(ADMIN_COOKIE, sign({ sub: subject, exp: Date.now() + SESSION_MS }), { maxAge: SESSION_MS / 1000, sameSite, secure: isHttps(req) });
 }
 
 /** The signed-in superadmin ("password" or a Google email), or null. */
 export function adminIdentity(req) {
-  const session = verify(parseCookies(req.headers.cookie)[ADMIN_COOKIE]);
-  if (!session) return null;
-  // A session only counts under the sign-in method that issued it, and a Google session only
-  // while its address is still listed.
+  const session = verify(parseCookies(req.headers?.cookie)[ADMIN_COOKIE]);
   const mode = authMode();
-  if (mode === "password" && session.sub === "password") return session.sub;
-  if (mode === "google" && superadminEmails().has(session.sub)) return session.sub;
+  if (session) {
+    if (mode === "password" && session.sub === "password") return "password";
+    if (mode === "google" && superadminEmails().has(String(session.sub).toLowerCase())) return String(session.sub).toLowerCase();
+  }
+  // Seamless Single Sign-On:
+  // If the user is signed in with Google (verified USER_COOKIE) and their email is listed in SUPERADMIN_EMAILS,
+  // they are automatically authorized as superadmin - no second sign-in required!
+  if (mode === "google") {
+    const user = currentUser(req);
+    if (user?.email && superadminEmails().has(String(user.email).toLowerCase())) {
+      return String(user.email).toLowerCase();
+    }
+  }
   return null;
 }
 export const isAdmin = (req) => adminIdentity(req) !== null;
 
-export const logoutCookie = (req) => cookie(ADMIN_COOKIE, "", { maxAge: 0, secure: isHttps(req) });
+export const logoutCookie = (req) => cookie(ADMIN_COOKIE, "", { maxAge: 0, sameSite: "Lax", secure: isHttps(req) });
 
 // ------------------------------------------------------------------ registered users
 
 /** The signed-in person ({ uid, email, name, role, picture? }), or null. */
 export function currentUser(req) {
-  const session = verify(parseCookies(req.headers.cookie)[USER_COOKIE]);
+  const session = verify(parseCookies(req.headers?.cookie)[USER_COOKIE]);
   if (!session?.uid) return null;
   return {
     uid: session.uid,
@@ -142,10 +151,11 @@ export function currentUser(req) {
  * their address is a listed superadmin. Also ends the Google sign-in attempt.
  */
 export function signInCookies(req, { uid, email, name, role, picture }) {
-  const superadmin = authMode() === "google" && superadminEmails().has(email);
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+  const superadmin = authMode() === "google" && superadminEmails().has(normalizedEmail);
   // Lax, so the session also counts when the person arrives from a link on another site.
-  const session = cookie(USER_COOKIE, sign({ uid, email, name, role, ...(picture ? { picture } : {}), exp: Date.now() + USER_SESSION_MS }), { maxAge: USER_SESSION_MS / 1000, sameSite: "Lax", secure: isHttps(req) });
-  return { superadmin, cookies: [clearOAuthCookie(req), session, ...(superadmin ? [sessionCookie(req, email)] : [])] };
+  const session = cookie(USER_COOKIE, sign({ uid, email: normalizedEmail, name, role, ...(picture ? { picture } : {}), exp: Date.now() + USER_SESSION_MS }), { maxAge: USER_SESSION_MS / 1000, sameSite: "Lax", secure: isHttps(req) });
+  return { superadmin, cookies: [clearOAuthCookie(req), session, ...(superadmin ? [sessionCookie(req, normalizedEmail)] : [])] };
 }
 
 /** Ends both the user and the superadmin session. */

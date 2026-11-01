@@ -134,11 +134,15 @@ test("a listed, verified Google account becomes superadmin", async () => {
   assert.equal(googleReplies.lastBody.get("code_verifier"), verify(attempt).verifier);
   assert.equal(googleReplies.lastBody.get("redirect_uri"), "https://finance.example.com/auth/google/callback");
   const session = cookieValue(cookies.find((c) => c.startsWith(ADMIN_COOKIE)), ADMIN_COOKIE);
-  assert.match(cookies.find((c) => c.startsWith(ADMIN_COOKIE)), /HttpOnly; SameSite=Strict; Secure/);
+  assert.match(cookies.find((c) => c.startsWith(ADMIN_COOKIE)), /HttpOnly; SameSite=Lax; Secure/);
   assert.equal(adminIdentity(req({ [ADMIN_COOKIE]: session })), "boss@example.com");
+  // Single sign-on: Even without ADMIN_COOKIE, a verified user cookie recognizes listed superadmins
+  const userCookie = cookieValue(cookies.find((c) => c.startsWith(USER_COOKIE)), USER_COOKIE);
+  assert.equal(adminIdentity(req({ [USER_COOKIE]: userCookie })), "boss@example.com");
   // Removing the address from SUPERADMIN_EMAILS ends the session.
   env({ ...GOOGLE, SUPERADMIN_EMAILS: "ops@example.com" });
   assert.equal(adminIdentity(req({ [ADMIN_COOKIE]: session })), null);
+  assert.equal(adminIdentity(req({ [USER_COOKIE]: userCookie })), null);
 });
 
 test("Google sign-in refuses wrong audience, unverified email, missing account ID and bad state", async () => {

@@ -431,7 +431,13 @@ function setView(view, { scroll = true } = {}) {
   if (!VIEWS.includes(view)) view = "overview";
   state.view = view;
   main.dataset.view = view;
-  if (view === "admin") renderAdmin();
+  if (view === "admin") {
+    if (state.commerce?.user && !state.commerce?.admin) {
+      loadCommerce().then(() => renderAdmin());
+    } else {
+      renderAdmin();
+    }
+  }
   if (view === "confirmed") {
     selectPostcard("confirmed", { syncHash: false });
   } else if (view === "upcoming") {
@@ -1387,7 +1393,48 @@ function renderSettings() {
   if (!s) return;
   $("#watchlist-chips").replaceChildren(
     ...s.watchlist.map((code) =>
-      h("li", { class: "chip" }, code, h("button", { type: "button", "data-remove": code, "aria-label": `Remove ${code} from watchlist`, ...agent(`btn_watchlist_remove_${code}`) }, icon("i-close"))),
+      h(
+        "li",
+        { class: "chip", "data-chip-code": code },
+        h("span", { class: "chip-code" }, code),
+        h(
+          "button",
+          {
+            type: "button",
+            class: "chip-remove-btn",
+            "data-request-remove": code,
+            "aria-label": `Remove ${code} from watchlist`,
+            ...agent(`btn_watchlist_remove_${code}`),
+          },
+          icon("i-close"),
+        ),
+        h(
+          "span",
+          { class: "chip-confirm", "data-confirm-group": code, hidden: true },
+          h(
+            "button",
+            {
+              type: "button",
+              class: "chip-btn-confirm",
+              "data-confirm-remove": code,
+              "aria-label": `Confirm remove ${code} from watchlist`,
+              ...agent(`btn_watchlist_confirm_${code}`),
+            },
+            "Delete",
+          ),
+          h(
+            "button",
+            {
+              type: "button",
+              class: "chip-btn-cancel",
+              "data-cancel-remove": code,
+              "aria-label": `Cancel remove ${code}`,
+              ...agent(`btn_watchlist_cancel_${code}`),
+            },
+            icon("i-close"),
+          ),
+        ),
+      ),
     ),
   );
   for (const [selector, fields] of Object.entries(SETTINGS_FORMS)) {
@@ -1535,6 +1582,19 @@ function renderAdmin() {
           h(
             "div",
             { style: "display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;" },
+            h(
+              "button",
+              {
+                class: "btn btn-secondary",
+                type: "button",
+                ...agent("btn_admin_verify_access"),
+                onclick: async () => {
+                  await loadCommerce();
+                  renderAdmin();
+                },
+              },
+              "Verify access",
+            ),
             h(
               "a",
               { class: "btn-google-signin", href: "/auth/google?return=admin", ...agent("btn_admin_switch_google") },
@@ -3034,6 +3094,43 @@ function bindEvents() {
     if (sort) {
       state.sort = sort.dataset.sort;
       renderConfirmed();
+      return;
+    }
+    const reqRemove = event.target.closest("[data-request-remove]");
+    if (reqRemove) {
+      event.preventDefault();
+      const code = reqRemove.dataset.requestRemove;
+      const chip = reqRemove.closest(".chip");
+      if (chip) {
+        chip.classList.add("is-confirming");
+        reqRemove.hidden = true;
+        const confirmSpan = chip.querySelector(`[data-confirm-group="${code}"]`);
+        if (confirmSpan) confirmSpan.hidden = false;
+      }
+      return;
+    }
+    const cancelRemove = event.target.closest("[data-cancel-remove]");
+    if (cancelRemove) {
+      event.preventDefault();
+      const code = cancelRemove.dataset.cancelRemove;
+      const chip = cancelRemove.closest(".chip");
+      if (chip) {
+        chip.classList.remove("is-confirming");
+        const confirmSpan = chip.querySelector(`[data-confirm-group="${code}"]`);
+        if (confirmSpan) confirmSpan.hidden = true;
+        const reqBtn = chip.querySelector(`[data-request-remove="${code}"]`);
+        if (reqBtn) reqBtn.hidden = false;
+      }
+      return;
+    }
+    const confirmRemove = event.target.closest("[data-confirm-remove]");
+    if (confirmRemove) {
+      event.preventDefault();
+      const code = confirmRemove.dataset.confirmRemove;
+      saveSettings(
+        { watchlist: state.settings.watchlist.filter((c) => c !== code) },
+        { message: `${code} removed from watchlist` }
+      );
       return;
     }
     const remove = event.target.closest("[data-remove]");

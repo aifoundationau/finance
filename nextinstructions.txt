@@ -1,9 +1,13 @@
 # Next Development Instructions
 
-## Current Status
-- Production deployment verified live at https://finance.aifoundation.net.au (Vercel deployment: `dpl_A8xEAfWSHMU57FCT63Gi1Q6sLFH4`).
-- Watchlist match count badge live in the filter bar.
-- Test suite: 88/88 passing.
+## Current Step
+1. Seamless single sign-on implemented for Google superadmins:
+   - Direct recognition via verified Google user session (`USER_COOKIE`) matching `SUPERADMIN_EMAILS` without requiring a secondary login.
+   - Updated `ADMIN_COOKIE` to `SameSite=Lax` to prevent cross-site OAuth callback cookie drop.
+   - Added automatic session synchronization in `server.js` (`viewer`).
+   - Added "Verify access" button and auto-refresh on admin navigation in `public/app.js`.
+   - Two-step confirm delete on Settings Watchlist chips.
+   - Test suite: 88/88 passing.
 
 ## Next Recommended Task
-- Implement mandatory two-step confirm delete on Settings Watchlist chips (`[data-remove]` -> Confirm delete button) to ensure 100% compliance with the Global Directives delete confirmation mandate.
+2. User verification on local dev server (http://127.0.0.1:3000/#admin), then commit and deploy to Vercel production.

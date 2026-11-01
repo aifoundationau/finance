@@ -16,7 +16,7 @@ import {
 } from "./src/commerce.js";
 import {
   ADMIN_COOKIE, AuthError, WALLET_COOKIE, adminIdentity, authMode, clearOAuthCookie, cookie, currentUser, googleCallback, googleConfigured,
-  googleStart, isAdmin, isHttps, login, logoutCookie, oauthReturnTo, parseCookies, signInCookies, signOutCookies,
+  googleStart, isAdmin, isHttps, login, logoutCookie, oauthReturnTo, parseCookies, sessionCookie, signInCookies, signOutCookies,
 } from "./src/admin.js";
 import { registerUser, resolveUserPicture } from "./src/users.js";
 import { idempotent } from "./src/idempotency.js";
@@ -110,7 +110,11 @@ async function viewer(ctx, { createWallet = false } = {}) {
   if (ctx.viewer && (ctx.viewer.wallet || !createWallet)) return ctx.viewer;
   const { wallet, created } = await ensureWallet(parseCookies(ctx.req.headers.cookie)[WALLET_COOKIE], { create: createWallet });
   if (created) ctx.cookies.push(cookie(WALLET_COOKIE, wallet.id, { maxAge: 400 * 86_400, sameSite: "Lax", secure: isHttps(ctx.req) }));
-  ctx.viewer = { admin: isAdmin(ctx.req), wallet, country: viewerCountry(ctx.req) };
+  const adminId = adminIdentity(ctx.req);
+  if (adminId && !parseCookies(ctx.req.headers.cookie)[ADMIN_COOKIE]) {
+    ctx.cookies.push(sessionCookie(ctx.req, adminId));
+  }
+  ctx.viewer = { admin: adminId !== null, wallet, country: viewerCountry(ctx.req) };
   return ctx.viewer;
 }
 
