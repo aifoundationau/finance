@@ -1,9 +1,9 @@
 # Next Development Instructions
 
-## Current Step
-1. Live contract count badge on Watchlist filter pill committed and pushed to GitHub main.
-   - Files: `public/index.html`, `public/app.js`, `public/styles.css`
-   - Test suite: 88/88 passing
+## Current Status
+- Production deployment verified live at https://finance.aifoundation.net.au (Vercel deployment: `dpl_A8xEAfWSHMU57FCT63Gi1Q6sLFH4`).
+- Watchlist match count badge live in the filter bar.
+- Test suite: 88/88 passing.
 
 ## Next Recommended Task
-2. Deploy latest update to production on Vercel.
+- Implement mandatory two-step confirm delete on Settings Watchlist chips (`[data-remove]` -> Confirm delete button) to ensure 100% compliance with the Global Directives delete confirmation mandate.
