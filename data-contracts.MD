@@ -9,7 +9,13 @@ All schemas strictly enforce `additionalProperties: false`, deterministic intege
 ## 1. Governance & Security Principles
 
 1. **Closed Schemas (`additionalProperties: false`)**: Every API endpoint and storage payload rejects unrecognised fields immediately with HTTP 400 (`VALIDATION_FAILED`).
-2. **Integer Economy (`Math.round`, No Decimals)**: Token amounts, token balances, and unit prices are strictly integers. Decimal values, floating point numbers, and non-numeric strings are rejected at boundary validation.
+2. **Strict Integer Economy & Rounding Up (`Math.ceil`, No Decimals)**:
+   - All token amounts, token balances, and AUD business prices are strictly whole numbers.
+   - We never use decimals; all calculations are rounded up (`Math.ceil`) to ensure whole numbers.
+   - The default price for one token is AUD $1 (`tokenPriceAud: 1`).
+   - Currency conversions (e.g. AUD to USD) may display up to a maximum of 2 decimal places (`(Math.round(val * 100) / 100).toFixed(2)`).
+   - Invoices and charges are issued strictly in Australian Dollars (AUD).
+   - Geolocation automatically sets the visitor's default region: Australia and New Zealand visitors see AUD; visitors outside AU/NZ see indicative USD currency conversion.
 3. **Privacy & Australian Privacy Principles (APP Compliance)**:
    - **Data Minimisation (APP 3 & 4)**: Only verified authentication tokens and identifiers required for access control are retained.
    - **Openness & Transparent Management (APP 1)**: Public legal policies (/privacy.html, /terms.html, /ai-policy.html, /token-policy.html) are embedded directly in the application.

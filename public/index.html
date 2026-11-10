@@ -625,6 +625,22 @@
           </div>
         </fieldset>
 
+        <!-- Currency Converter Section -->
+        <fieldset class="geo-fieldset" id="geo-currency-converter-section">
+          <legend class="geo-legend">Currency Converter (AUD ↔ USD)</legend>
+          <div class="geo-form-row">
+            <div class="geo-form-group flex-1">
+              <label for="geo-conv-aud-input">Australian Dollars (AUD)</label>
+              <input id="geo-conv-aud-input" type="number" min="0" step="1" value="1" placeholder="AUD" data-agent-id="input_geo_conv_aud" data-testid="input_geo_conv_aud">
+            </div>
+            <div class="geo-form-group flex-1">
+              <label for="geo-conv-usd-input">US Dollars (USD)</label>
+              <input id="geo-conv-usd-input" type="number" min="0" step="0.01" value="0.65" placeholder="USD" data-agent-id="input_geo_conv_usd" data-testid="input_geo_conv_usd">
+            </div>
+          </div>
+          <p class="cell-sub" id="geo-conv-rate-note" style="margin: 0.25rem 0;">Exchange rate: 1 AUD = 0.6500 USD (Max 2 decimals for USD). All invoices and charges are strictly processed in Australian Dollars (AUD).</p>
+        </fieldset>
+
         <div class="geo-dialog-actions">
           <button type="button" class="btn btn-ghost" data-close-geo data-agent-id="btn_cancel_geo" data-testid="btn_cancel_geo">Cancel</button>
           <button type="submit" class="btn btn-primary" data-agent-id="btn_save_geo" data-testid="btn_save_geo">Save Settings</button>

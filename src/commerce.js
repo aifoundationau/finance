@@ -82,8 +82,8 @@ function mutate(fn) {
 
 export function itemPrices(item, settings) {
   return {
-    priceAud: item.priceAud ?? item.tokenAmount * settings.tokenPriceAud,
-    priceUsd: item.priceUsd ?? item.tokenAmount * settings.tokenPriceUsd,
+    priceAud: item.priceAud ?? Math.ceil(item.tokenAmount * settings.tokenPriceAud),
+    priceUsd: item.priceUsd ?? Math.ceil(item.tokenAmount * settings.tokenPriceUsd),
   };
 }
 

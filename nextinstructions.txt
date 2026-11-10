@@ -1,11 +1,17 @@
 # Next Development Instructions
 
 ## Current Status
-- Production deployment verified live at https://finance.aifoundation.net.au (Vercel deployment: `dpl_6ZFa2eHU5StKWQ9cPKs2n2koQn1J`).
-- Cloud Firestore rules deployed and up-to-date on `ai-foundation-firebase` (`firestore.rules` and `firestore.default.rules`).
-- Superadmin single sign-on active (Google session directly recognized without second login).
-- Two-step confirm delete on Settings Watchlist chips active.
-- Test suite: 88/88 passing.
+- Production deployment live at https://finance.aifoundation.net.au.
+- Added `davidrobertson.info@gmail.com` to `SUPERADMIN_EMAILS` (local `.env` and Vercel production).
+- OAuth redirect mismatch resolved: automatic normalization of `127.0.0.1` to `localhost` in `server.js` for Google sign-in.
+- Currency Converter implemented & active:
+  - `public/shared/currency.js`: live AUD to USD conversion with standard 0.65 fallback, max 2 decimals for USD, and whole numbers rounded up (`Math.ceil`) for catalog pricing.
+  - Superadmin Token Price form (`#admin-pricing`): automatic USD price calculation on AUD price input, live currency converter badge, and "⚡ Live FX Rate" button.
+  - Geo Settings dialog (`#geo-dialog`): interactive real-time AUD ↔ USD converter with max 2 decimals.
+  - Token and unlock dialogs: clear notice that all invoices and transactions are processed strictly in Australian Dollars (AUD).
+- Terms of Service (`public/terms.html`) and Token Policy (`public/token-policy.html`) updated with token explanation, whole numbers rule, invoices in AUD, free superadmin messages, and refund rules.
+- Data contracts documented in `data-contracts.MD`.
+- Test suite: 93/93 passing (`npm test`). Local server running on http://localhost:3000.
 
-## Next Recommended Task
-- Review AI analyst daily schedule execution logs or test daily brief generation trigger (`/api/cron/daily`).
+## Next Task
+- Ask user to verify the Superadmin login and automatic currency converter at http://localhost:3000, then commit and deploy changes to GitHub and Vercel when ready.

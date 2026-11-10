@@ -12,9 +12,15 @@ import {
 } from "/shared/schemas.js";
 import { googleStockSearchUrl } from "/shared/exchanges.js";
 import { GLOBAL_COUNTRIES, COUNTRY_NAME_MAP, getCountryName, fetchWorldBankPpp } from "/shared/countries.js";
+import { DEFAULT_AUD_TO_USD_RATE, convertAudToUsd, convertUsdToAud, fetchAudToUsdRate } from "/shared/currency.js";
 
 // Tells boot-check.js the module graph loaded (an import that fails stops this file running).
 window.__maoStarted = true;
+
+let activeFxRate = DEFAULT_AUD_TO_USD_RATE;
+fetchAudToUsdRate().then((r) => {
+  if (r && r > 0) activeFxRate = r;
+}).catch(() => {});
 
 const VIEWS = ["overview", "confirmed", "upcoming", "takeaways", "admin", "welcome"];
 const DETAILS_ITEM_ID = "contract-details"; // the saleable item that unlocks value/scope and sources
@@ -99,7 +105,13 @@ function tickerLabel(c, short = false) {
 
 const tokensOn = () => state.commerce?.tokenSystemEnabled === true;
 const detailsProduct = () => state.commerce?.items?.find((i) => i.id === DETAILS_ITEM_ID) ?? null;
-const dollars = (n, currency) => `$${Math.round(n)} ${currency}`;
+const dollars = (n, currency) => {
+  if (currency === "USD") {
+    const formatted = (Math.round(n * 100) / 100).toFixed(2);
+    return `$${formatted} USD`;
+  }
+  return `$${Math.ceil(n)} ${currency || "AUD"}`;
+};
 
 /** Dollar lines for a price object, only for currencies this visitor may see. */
 function priceLines(price = {}) {
@@ -316,6 +328,7 @@ function openUnlock(itemId) {
           h("p", { class: "notice notice-warn" }, `You need ${plural(short, "more token")}.`),
           h("div", { class: "dialog-actions" }, h("button", { class: "btn btn-primary", type: "button", "data-open-wallet": "", ...agent("btn_get_tokens") }, icon("i-token", "token-icon"), "Get tokens")),
         ],
+    h("p", { class: "notice notice-info", style: "font-size: 0.8rem; margin-top: 0.75rem;" }, "Notice: All invoices and charges are processed strictly in Australian Dollars (AUD). Currency conversions to USD are indicative estimates only."),
   );
 }
 
@@ -359,6 +372,7 @@ function openWallet() {
       { class: "detail-section" },
       h("h3", {}, "Buy tokens"),
       perToken.length ? h("p", { class: "cell-sub" }, `Price per token: ${perToken.join(" · ")}`) : null,
+      h("p", { class: "notice notice-info", style: "font-size: 0.8rem; margin: 0.5rem 0;" }, "Notice: All invoices and charges are processed strictly in Australian Dollars (AUD). Currency conversions to USD are indicative estimates only."),
       h("div", { class: "field" }, h("label", { for: "buy-qty" }, "Tokens"), quantity, error),
       total,
       h("button", { class: "btn btn-primary", type: "button", disabled: true, ...agent("btn_buy_tokens") }, "Buy tokens"),
@@ -1647,7 +1661,51 @@ function renderAdmin() {
   );
 
   const toggles = schemaForm({ id: "admin-toggles", schema: COMMERCE_SETTINGS_PATCH, only: ["isTokenSystemEnabled", "isAudEnabled", "isUsdEnabled"], values: a.settings, title: "System toggles" });
-  const pricing = schemaForm({ id: "admin-pricing", schema: COMMERCE_SETTINGS_PATCH, only: ["tokenPriceAud", "tokenPriceUsd"], values: a.settings, title: "Token price", submitLabel: "Save prices" });
+
+  const audPrice = a.settings.tokenPriceAud || 1;
+  const initialConv = convertAudToUsd(audPrice, activeFxRate);
+
+  const pricingConverter = h(
+    "div",
+    {
+      class: "currency-converter-box",
+      id: "admin-pricing-converter",
+      style: "background: var(--bg-subtle, rgba(0,0,0,0.03)); border: 1px solid var(--border-color, #e2e8f0); border-radius: 6px; padding: 0.75rem; margin: 0.75rem 0; font-size: 0.85rem;",
+    },
+    h(
+      "div",
+      { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;" },
+      h("strong", {}, "💱 Currency Converter (AUD → USD)"),
+      h(
+        "button",
+        {
+          class: "btn btn-ghost btn-sm",
+          type: "button",
+          id: "admin-btn-sync-fx",
+          title: "Fetch latest market exchange rate",
+          ...agent("btn_sync_fx_rate"),
+        },
+        "⚡ Live FX Rate",
+      ),
+    ),
+    h(
+      "p",
+      { id: "admin-pricing-fx-info", style: "margin: 0.25rem 0;" },
+      `Converted: AUD $${initialConv.aud.toFixed(2)} = USD $${initialConv.exactUsdFormatted} (rate: ${activeFxRate.toFixed(4)}, max 2 decimals)`,
+    ),
+    h("p", { class: "cell-sub", style: "margin: 0.25rem 0;" }, "• Whole dollars rule: USD token price is automatically rounded up (Math.ceil) to whole dollars."),
+    h("p", { class: "cell-sub text-warn", style: "margin: 0.25rem 0;" }, "• Invoicing requirement: All invoices and charges are issued strictly in Australian Dollars (AUD)."),
+  );
+
+  const pricing = schemaForm({
+    id: "admin-pricing",
+    schema: COMMERCE_SETTINGS_PATCH,
+    only: ["tokenPriceAud", "tokenPriceUsd"],
+    values: a.settings,
+    title: "Token price",
+    submitLabel: "Save prices",
+    extra: [pricingConverter],
+  });
   const countryPricing = buildCountryPricing(a);
 
   const editing = a.items.find((i) => i.id === state.editingItem) ?? null;
@@ -2025,6 +2083,16 @@ function bindAdmin() {
   });
 
   admin.addEventListener("input", (event) => {
+    if (event.target.matches('#admin-pricing [name="tokenPriceAud"]')) {
+      const audVal = Number(event.target.value) || 0;
+      const usdInput = document.querySelector('#admin-pricing [name="tokenPriceUsd"]');
+      const conv = convertAudToUsd(audVal, activeFxRate);
+      if (usdInput) usdInput.value = String(conv.wholeUsd);
+      const infoEl = document.querySelector("#admin-pricing-fx-info");
+      if (infoEl) {
+        infoEl.textContent = `Converted: AUD $${conv.aud.toFixed(2)} = USD $${conv.exactUsdFormatted} (rate: ${activeFxRate.toFixed(4)}, max 2 decimals)`;
+      }
+    }
     if (event.target.id === "admin-country-search") {
       const q = event.target.value.toLowerCase().trim();
       const select = $("#admin-country-code");
@@ -2058,6 +2126,33 @@ function bindAdmin() {
   });
 
   document.addEventListener("click", async (event) => {
+    const syncFx = event.target.closest("#admin-btn-sync-fx");
+    if (syncFx) {
+      event.preventDefault();
+      syncFx.textContent = "⚡ Fetching…";
+      syncFx.disabled = true;
+      try {
+        const rate = await fetchAudToUsdRate();
+        if (rate && rate > 0) activeFxRate = rate;
+        const audInput = document.querySelector('#admin-pricing [name="tokenPriceAud"]');
+        const usdInput = document.querySelector('#admin-pricing [name="tokenPriceUsd"]');
+        const audVal = Number(audInput?.value) || 1;
+        const conv = convertAudToUsd(audVal, activeFxRate);
+        if (usdInput) usdInput.value = String(conv.wholeUsd);
+        const infoEl = document.querySelector("#admin-pricing-fx-info");
+        if (infoEl) {
+          infoEl.textContent = `Converted: AUD $${conv.aud.toFixed(2)} = USD $${conv.exactUsdFormatted} (rate: ${activeFxRate.toFixed(4)}, max 2 decimals)`;
+        }
+        announce(`Live exchange rate updated: 1 AUD = ${activeFxRate.toFixed(4)} USD`);
+      } catch (_) {
+        announce("Using standard exchange rate: 1 AUD = 0.6500 USD", "info");
+      } finally {
+        syncFx.textContent = "⚡ Live FX Rate";
+        syncFx.disabled = false;
+      }
+      return;
+    }
+
     const suggestPpp = event.target.closest("#admin-btn-suggest-ppp");
     if (suggestPpp) {
       event.preventDefault();
@@ -2950,6 +3045,18 @@ function renderGeoDialog() {
   if (condEl) condEl.textContent = geo.condition;
   const locEl = $("#geo-weather-location");
   if (locEl) locEl.textContent = `${geo.suburb}, ${geo.state}`;
+
+  const audConvInput = $("#geo-conv-aud-input");
+  const usdConvInput = $("#geo-conv-usd-input");
+  const noteEl = $("#geo-conv-rate-note");
+  if (audConvInput && usdConvInput) {
+    const aud = Math.ceil(Number(audConvInput.value) || 1);
+    audConvInput.value = String(aud);
+    usdConvInput.value = convertAudToUsd(aud, activeFxRate).exactUsdFormatted;
+  }
+  if (noteEl) {
+    noteEl.textContent = `Exchange rate: 1 AUD = ${activeFxRate.toFixed(4)} USD (Max 2 decimals for USD). All invoices and charges are strictly processed in Australian Dollars (AUD).`;
+  }
 }
 
 async function updateGeoWeather(lat, lon) {
@@ -3326,6 +3433,18 @@ function bindEvents() {
     }
     for (const b of $$(".seg [data-scope]")) b.setAttribute("aria-checked", String(b.dataset.scope === "all"));
     render();
+  });
+
+  document.addEventListener("input", (event) => {
+    if (event.target.id === "geo-conv-aud-input") {
+      const aud = Number(event.target.value) || 0;
+      const usdInput = $("#geo-conv-usd-input");
+      if (usdInput) usdInput.value = convertAudToUsd(aud, activeFxRate).exactUsdFormatted;
+    } else if (event.target.id === "geo-conv-usd-input") {
+      const usd = Number(event.target.value) || 0;
+      const audInput = $("#geo-conv-aud-input");
+      if (audInput) audInput.value = String(convertUsdToAud(usd, activeFxRate).wholeAud);
+    }
   });
 
   const bars = $("#sector-bars");

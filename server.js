@@ -370,6 +370,11 @@ async function handleAuth(req, res, url) {
   let returnTo = "";
   try {
     if (url.pathname === "/auth/google") {
+      const host = String(req.headers.host || "");
+      if (/^127\.0\.0\.1(?::|$)/.test(host)) {
+        const localHost = host.replace(/^127\.0\.0\.1/, "localhost");
+        return redirect(res, `http://${localHost}${url.pathname}${url.search}`);
+      }
       const { location, cookies } = googleStart(req, { returnTo: url.searchParams.get("return") });
       return redirect(res, location, cookies);
     }
