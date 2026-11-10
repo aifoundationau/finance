@@ -2,16 +2,17 @@
 
 ## Current Status
 - Production deployment live at https://finance.aifoundation.net.au.
-- Added `davidrobertson.info@gmail.com` to `SUPERADMIN_EMAILS` (local `.env` and Vercel production).
-- OAuth redirect mismatch resolved: automatic normalization of `127.0.0.1` to `localhost` in `server.js` for Google sign-in.
-- Currency Converter implemented & active:
-  - `public/shared/currency.js`: live AUD to USD conversion with standard 0.65 fallback, max 2 decimals for USD, and whole numbers rounded up (`Math.ceil`) for catalog pricing.
-  - Superadmin Token Price form (`#admin-pricing`): automatic USD price calculation on AUD price input, live currency converter badge, and "⚡ Live FX Rate" button.
+  - Vercel Deployment ID: `dpl_5SBWWwXQcMzYcVUdkgj93xw82CL6` (commit: `a828723`).
+  - Active aliases: `finance.aifoundation.net.au`.
+- Superadmin access active for: `support@aifoundation.net.au` and `davidrobertson.info@gmail.com`.
+- Automatic AUD-to-USD currency converter deployed:
+  - Superadmin Token price card (`#admin-pricing`): automatic USD price calculation on AUD price change, live currency converter badge, and "⚡ Live FX Rate" button.
   - Geo Settings dialog (`#geo-dialog`): interactive real-time AUD ↔ USD converter with max 2 decimals.
-  - Token and unlock dialogs: clear notice that all invoices and transactions are processed strictly in Australian Dollars (AUD).
-- Terms of Service (`public/terms.html`) and Token Policy (`public/token-policy.html`) updated with token explanation, whole numbers rule, invoices in AUD, free superadmin messages, and refund rules.
+  - All token and checkout dialogs: prominent disclaimer that all invoices and charges are strictly processed in Australian Dollars (AUD).
+- Strict whole numbers rule: All business amounts rounded up (`Math.ceil`), currency conversion max 2 decimals.
+- Terms of Service (`public/terms.html`) and Token Policy (`public/token-policy.html`) updated.
 - Data contracts documented in `data-contracts.MD`.
-- Test suite: 93/93 passing (`npm test`). Local server running on http://localhost:3000.
+- Test suite: 93/93 passing.
 
 ## Next Task
-- Ask user to verify the Superadmin login and automatic currency converter at http://localhost:3000, then commit and deploy changes to GitHub and Vercel when ready.
+- Have user sign in to https://finance.aifoundation.net.au with `support@aifoundation.net.au` and confirm superadmin panel access and currency converter functionality.
